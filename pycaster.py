@@ -1,3 +1,6 @@
+# TODO: import starting location from game
+# TODO: move creating walls to game, not in engine
+
 from random import randint
 
 import configparser
@@ -8,20 +11,20 @@ import geometry
 
 
 def rand_color():
-    return randint(0, 255), randint(0, 255), randint(0, 255)
+    return 100, 100, 100
+    # randint(0, 255), randint(0, 255), randint(0, 255)
 
 
 class Engine:
-    def __init__(self):
+    def __init__(self, width, height, wall_height):
         # initialize the config parsers
         config = configparser.ConfigParser()
         config.read('settings.ini')
-        de_config = config['DEFAULT']
         en_config = config['ENGINE']
 
         # Get engine settings from settings.ini
-        self.width = int(de_config['width'])
-        self.height = int(de_config['height'])
+        self.width = width
+        self.height = height
 
         # The field of view / angle of the view cone
         self.fov = int(en_config['fov']) * (math.pi / 180)
@@ -36,10 +39,11 @@ class Engine:
         self.rotation_units = int(en_config['rotationUnits']) * (math.pi / 180)
 
         # Pixels the camera moves
-        self.movement_units = int(en_config['movementUnits'])
+        self.movement_units = float(en_config['movementUnits'])
 
         # Total length of each ray cast
-        self.view_radius = math.sqrt(math.pow(self.height, 2) + math.pow(self.width, 2))
+        self.view_radius = int(en_config['viewDistance'])
+        # math.sqrt(math.pow(self.height, 2) + math.pow(self.width, 2))
 
         # Maximum distance which depth is calculated
         self.lighting_distance = int(en_config['lightDistance'])
@@ -48,13 +52,16 @@ class Engine:
         self.camera_plane_distance = (self.width / 2) / (math.tan(self.fov / 2))
 
         # Height scalar of each projected wall
-        self.wall_height = int(en_config['wallHeight'])
+        self.wall_height = wall_height
 
         # Sprint scalar applied when holding shift
         self.sprint_scalar = float(en_config['sprintScalar'])
 
         # Current position of the camera
-        self.current_position = (self.width / 2, 10)
+        self.current_position = (self.width / 2 + 150, self.height / 2 + 150)
+
+        # Current height of the camera
+        self.current_height = 0
 
         # Dictionary containing all lists of walls
         self.walls = {}
@@ -67,9 +74,6 @@ class Engine:
 
         # Current amount sprint is being applied
         self.sprint_mod = 0
-
-        # Generate all default walls
-        self.gen_walls()
 
         # Generate all
         self.gen_rays()
@@ -100,18 +104,6 @@ class Engine:
 
         # Update the current location of the camera plane relative to the camera
         self.update_camera_plane()
-
-    def gen_walls(self):
-        wl = []
-        for i in range(4):
-            c = rand_color()
-            p1 = (i - 0) * (i - 3) * ((self.width / 2) * (i - 2) + (self.width / -2) * (i - 1)), \
-                 (i - 0) * (i - 1) * ((self.height / -2) * (i - 3) + (self.height / 6) * (i - 2))
-            p2 = (i - 2) * (i - 3) * ((self.width / -6) * (i - 1) + (self.width / 2) * (i - 0)), \
-                 (i - 0) * (i - 3) * ((self.height / 2) * (i - 2) + (self.height / -2) * (i - 1))
-            w = geometry.Wall(p1, p2, c)
-            wl.append(w)
-        self.walls["default"] = wl
 
     def gen_rays(self):
         rad_slice = (360.0 / self.ray_count) * (math.pi / 180)
@@ -219,8 +211,10 @@ class Engine:
 
         for i in range(len(rays)):
             # Top and bottom halves of the slice
-            hw1 = geometry.Wall((0, 0), (0, 0), (0, 0, 0))
-            hw2 = geometry.Wall((0, 0), (0, 0), (0, 0, 0))
+            hw1 = geometry.Wall((0, 0), (0, 0), (0, 0, 0), self.wall_height)
+            hw2 = geometry.Wall((0, 0), (0, 0), (0, 0, 0), self.wall_height)
+
+            ray = rays[i]
 
             length = geometry.length(rays[i])
             color = self.depth_shader(rays[i].get_color(), length)
@@ -230,13 +224,29 @@ class Engine:
             distance_to_slice = length * math.cos(math.fabs(rays[i].get_rd() - self.fov_center_ray.get_rd()))
             # THIS LITERALLY TOOK LIKE 8 HOURS TO REALIZE I HAD THIS EQUATION WRONG
             # https://permadi.com/1996/05/ray-casting-tutorial-9/
+
+            # Prevent division by zero when close to slice
+            if distance_to_slice < 1:
+                distance_to_slice = 1
             projected_slice_height = (self.wall_height / distance_to_slice) * distance_to_projection_plane
 
+            # Simulate camera height
+            q = projected_slice_height * ((self.current_height + 1)/2)
+            r = projected_slice_height - (projected_slice_height * ((self.current_height + 1)/2))
+
+            # So basically I'm trying to make different walls have different heights.
+            # IDK figure it out
+            d_wh = self.wall_height - ray.get_wall_height()
+            q -= d_wh
+            if q < 0:
+                r += q
+                q = 0
+
             hw1.set_p1((i * padding, self.height / 2))
-            hw1.set_p2((i * padding, (self.height / 2) + projected_slice_height / 2))
+            hw1.set_p2((i * padding, (self.height / 2) + r))
 
             hw2.set_p1((i * padding, self.height / 2))
-            hw2.set_p2((i * padding, (self.height / 2) - projected_slice_height / 2))
+            hw2.set_p2((i * padding, (self.height / 2) - q))
 
             hw1.set_color(color)
             hw2.set_color(color)
@@ -249,10 +259,14 @@ class Engine:
 
         return display_buffer
 
+    def debug(self):
+        return self.camera_rays
+
     def depth_shader(self, col, length):
-        c = [col[0] - ((col[0] - 30) * math.log(length + 1) / math.log(self.lighting_distance + 1)),
-             col[1] - ((col[1] - 30) * math.log(length + 1) / math.log(self.lighting_distance + 1)),
-             col[2] - ((col[2] - 30) * math.log(length + 1) / math.log(self.lighting_distance + 1))]
+        d = 0
+        c = [col[0] - ((col[0] - d) * math.log(length + 1) / math.log(self.lighting_distance + 1)),
+             col[1] - ((col[1] - d) * math.log(length + 1) / math.log(self.lighting_distance + 1)),
+             col[2] - ((col[2] - d) * math.log(length + 1) / math.log(self.lighting_distance + 1))]
         for i in range(len(col)):
             if c[i] < 0:
                 c[i] = 0
@@ -263,6 +277,10 @@ class Engine:
             self.sprint_mod = self.sprint_scalar * self.movement_units
         else:
             self.sprint_mod = 0
+        if keys[pygame.K_UP]:
+            self.current_height += 0.03
+        if keys[pygame.K_DOWN]:
+            self.current_height -= 0.03
         if keys[pygame.K_e]:
             if self.rotation_delta < (360 * (math.pi/180)):
                 self.rotation_delta = self.rotation_delta + self.rotation_units
@@ -307,6 +325,7 @@ class Engine:
                 for wall in self.walls[k]:
                     p2 = geometry.intersect(wall, ray)
                     if p2 is not None:
+                        ray.set_wall_height(wall.get_height())
                         ray.set_color(wall.get_color())
                         ray.set_p2(p2)
 

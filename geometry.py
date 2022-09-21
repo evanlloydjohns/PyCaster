@@ -47,9 +47,10 @@ class Line:
 
 
 class Wall(Line):
-    def __init__(self, p1, p2, color):
+    def __init__(self, p1, p2, color, height):
         self.color = color
         self.width = 1
+        self.height = height
         super().__init__(p1, p2)
 
     def get_color(self):
@@ -65,6 +66,12 @@ class Wall(Line):
     def set_width(self, width):
         self.width = width
 
+    def get_height(self):
+        return self.height
+
+    def set_height(self, height):
+        self.height = height
+
     def get_wall(self):
         return self.color, self.p1, self.p2, self.width
 
@@ -74,6 +81,7 @@ class Ray(Line):
         # Rotation delta in radians, used for rays
         self.rd = rd
         self.color = color
+        self.wall_height = 0
         super().__init__(p1, p2)
 
     def get_rd(self):
@@ -87,3 +95,9 @@ class Ray(Line):
 
     def set_color(self, color):
         self.color = color
+
+    def get_wall_height(self):
+        return self.wall_height
+
+    def set_wall_height(self, wall_height):
+        self.wall_height = wall_height

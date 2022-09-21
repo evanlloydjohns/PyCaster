@@ -1,23 +1,18 @@
-import configparser
 import pygame
 
 
 class Display:
-    def __init__(self):
-        config = configparser.ConfigParser()
-        config.read('settings.ini')
-        de_config = config['DEFAULT']
-        di_config = config['DISPLAY']
+    def __init__(self, width, height, is_full_screen):
 
-        self.width = int(de_config['width'])
-        self.height = int(de_config['height'])
-        self.isFullscreen = bool(di_config['isFullscreen'])
+        self.width = width
+        self.height = height
+        self.is_full_screen = is_full_screen
 
         pygame.init()
         self.image = pygame.Surface((self.width, self.height))
         self.image.fill((0, 101, 103))
         self.react = self.image.get_rect()
-        self.screen = pygame.display.set_mode((self.width, self.height))
+        self.screen = pygame.display.set_mode((self.width, self.height), self.is_full_screen)
 
     def get_screen(self):
         return self.screen
