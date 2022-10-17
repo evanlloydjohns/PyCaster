@@ -211,8 +211,8 @@ class Engine:
 
         for i in range(len(rays)):
             # Top and bottom halves of the slice
-            hw1 = geometry.Wall((0, 0), (0, 0), (0, 0, 0), self.wall_height)
-            hw2 = geometry.Wall((0, 0), (0, 0), (0, 0, 0), self.wall_height)
+            hw1 = geometry.Wall((0, 0), (0, 0), (0, 0, 0))
+            hw2 = geometry.Wall((0, 0), (0, 0), (0, 0, 0))
 
             ray = rays[i]
 
@@ -230,23 +230,28 @@ class Engine:
                 distance_to_slice = 1
             projected_slice_height = (self.wall_height / distance_to_slice) * distance_to_projection_plane
 
-            # Simulate camera height
-            q = projected_slice_height * ((self.current_height + 1)/2)
-            r = projected_slice_height - (projected_slice_height * ((self.current_height + 1)/2))
-
-            # So basically I'm trying to make different walls have different heights.
-            # IDK figure it out
-            d_wh = self.wall_height - ray.get_wall_height()
-            q -= d_wh
-            if q < 0:
-                r += q
-                q = 0
+            # For variable Wall height (Does not work)
+            # # Simulate camera height
+            # q = projected_slice_height * ((self.current_height + 1)/2)
+            # r = projected_slice_height - (projected_slice_height * ((self.current_height + 1)/2))
+            #
+            # # So basically I'm trying to make different walls have different heights.
+            # # IDK figure it out
+            # d_wh = self.wall_height - ray.get_wall_height()
+            # q -= d_wh
+            # if q < 0:
+            #     r += q
+            #     q = 0
 
             hw1.set_p1((i * padding, self.height / 2))
-            hw1.set_p2((i * padding, (self.height / 2) + r))
+            hw1.set_p2((i * padding, (self.height / 2) + projected_slice_height / 2))
+            # For variable wall height (does not work)
+            # hw1.set_p2((i * padding, (self.height / 2) + r))
 
             hw2.set_p1((i * padding, self.height / 2))
-            hw2.set_p2((i * padding, (self.height / 2) - q))
+            hw2.set_p2((i * padding, (self.height / 2) - projected_slice_height / 2))
+            # For variable wall height (does not work)
+            # hw2.set_p2((i * padding, (self.height / 2) - q))
 
             hw1.set_color(color)
             hw2.set_color(color)
@@ -325,7 +330,6 @@ class Engine:
                 for wall in self.walls[k]:
                     p2 = geometry.intersect(wall, ray)
                     if p2 is not None:
-                        ray.set_wall_height(wall.get_height())
                         ray.set_color(wall.get_color())
                         ray.set_p2(p2)
 

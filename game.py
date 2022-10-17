@@ -31,13 +31,13 @@ def gen_walls():
     h_d = s / d
     wl = [
         geometry.Wall(((width / 2) + 0, (height / 2) + 0), ((width / 2) + 0, (height / 2) + s),
-                      colors["WHITE"], wall_height - 50),
+                      colors["WHITE"]),
         geometry.Wall(((width / 2) + 0, (height / 2) + s), ((width / 2) + s, (height / 2) + s),
-                      colors["WHITE"], wall_height - 50),
+                      colors["WHITE"]),
         geometry.Wall(((width / 2) + s, (height / 2) + s), ((width / 2) + s, (height / 2) + 0),
-                      colors["WHITE"], wall_height - 50),
+                      colors["WHITE"]),
         geometry.Wall(((width / 2) + s, (height / 2) + 0), ((width / 2) + 0, (height / 2) + 0),
-                      colors["WHITE"], wall_height - 50)
+                      colors["WHITE"])
     ]
 
     for i in range(d):
@@ -54,12 +54,12 @@ def gen_walls():
         for j in range(d):
             if j % 2 == 0:
                 if j + 1 is not d:
-                    wl.append(geometry.Wall(cord_loc[i][j], cord_loc[i][j + 1], colors["WHITE"], wall_height))
+                    wl.append(geometry.Wall(cord_loc[i][j], cord_loc[i][j + 1], colors["WHITE"]))
                 else:
                     pass
             if i % 2 == 0:
                 if i + 1 is not d:
-                    wl.append(geometry.Wall(cord_loc[i][j], cord_loc[i + 1][j], colors["WHITE"], wall_height))
+                    wl.append(geometry.Wall(cord_loc[i][j], cord_loc[i + 1][j], colors["WHITE"]))
     print(cord_loc)
     # for i in range(4):
     #     c = rand_color()
@@ -113,7 +113,7 @@ def run():
                     lcb = not lcb
                     lc.append(pygame.mouse.get_pos())
                     if len(lc) > 1:
-                        engine.add_walls("click", [geometry.Wall(lc[0], lc[1], rand_color(), wall_height)])
+                        engine.add_walls("click", [geometry.Wall(lc[0], lc[1], rand_color())])
                         lc.clear()
                         engine.remove_walls("temp")
                 # Start drawing a square
@@ -121,15 +121,15 @@ def run():
                     mc.append(pygame.mouse.get_pos())
                     if len(mc) > 1:
                         c = rand_color()
-                        engine.add_walls("click", [geometry.Wall((mc[0][0], mc[0][1]), (mc[1][0], mc[0][1]), c, wall_height)])
-                        engine.add_walls("click", [geometry.Wall((mc[1][0], mc[0][1]), (mc[1][0], mc[1][1]), c, wall_height)])
-                        engine.add_walls("click", [geometry.Wall((mc[1][0], mc[1][1]), (mc[0][0], mc[1][1]), c, wall_height)])
-                        engine.add_walls("click", [geometry.Wall((mc[0][0], mc[1][1]), (mc[0][0], mc[0][1]), c, wall_height)])
+                        engine.add_walls("click", [geometry.Wall((mc[0][0], mc[0][1]), (mc[1][0], mc[0][1]), c)])
+                        engine.add_walls("click", [geometry.Wall((mc[1][0], mc[0][1]), (mc[1][0], mc[1][1]), c)])
+                        engine.add_walls("click", [geometry.Wall((mc[1][0], mc[1][1]), (mc[0][0], mc[1][1]), c)])
+                        engine.add_walls("click", [geometry.Wall((mc[0][0], mc[1][1]), (mc[0][0], mc[0][1]), c)])
                         mc.clear()
 
         # If building wall, send mouse position for wall preview
         if lcb:
-            engine.change_walls("temp", [geometry.Wall(lc[0], pygame.mouse.get_pos(), (0, 0, 0), wall_height)])
+            engine.change_walls("temp", [geometry.Wall(lc[0], pygame.mouse.get_pos(), (0, 0, 0))])
 
         # Update engine
         engine.update()
@@ -160,9 +160,9 @@ is_debug = int(de_config['isDebug'])
 is_full_screen = bool(de_config['isFullScreen'])
 wall_height = int(de_config['wallHeight'])
 
-w1 = geometry.Wall((300, 0), (600, 600), (0, 0, 0), wall_height)
-w2 = geometry.Wall((600, 600), (0, 600), (0, 0, 0), wall_height)
-w3 = geometry.Wall((0, 600), (300, 0), (0, 0, 0), wall_height)
+w1 = geometry.Wall((300, 0), (600, 600), (0, 0, 0))
+w2 = geometry.Wall((600, 600), (0, 600), (0, 0, 0))
+w3 = geometry.Wall((0, 600), (300, 0), (0, 0, 0))
 tri_list = [w1, w2, w3]
 emp_list = []
 
