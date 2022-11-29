@@ -50,9 +50,12 @@ class Wall(Line):
     def __init__(self, p1, p2, color):
         self.color = color
         self.width = 1
+        self.selected = False
         super().__init__(p1, p2)
 
     def get_color(self):
+        # if self.selected:
+        #     return (255, 0, 0)
         return self.color
 
     def set_color(self, color):
@@ -68,6 +71,12 @@ class Wall(Line):
     def get_wall(self):
         return self.color, self.p1, self.p2, self.width
 
+    def set_selected(self, selected):
+        self.selected = selected
+
+    def get_selected(self):
+        return self.selected
+
 
 class Ray(Line):
     def __init__(self, p1, p2, color, rd):
@@ -75,6 +84,7 @@ class Ray(Line):
         self.rd = rd
         self.color = color
         self.wall_height = 0
+        self.collide = False
         super().__init__(p1, p2)
 
     def get_rd(self):

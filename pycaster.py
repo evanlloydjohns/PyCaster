@@ -200,9 +200,38 @@ class Engine:
         # Checks collisions with projected rays and walls
         self.check_collisions(self.camera_rays)
 
+    def get_center(self):
+        length = len(self.camera_rays)
+        mid = round(length / 2)
+        self.camera_rays[mid].set_color((255, 0, 0))
+
+    def get_facing_wall(self):
+        length = len(self.camera_rays)
+        mid = round(length / 2)
+        center_ray = self.camera_rays[mid]
+        for k in self.walls:
+            for wall in self.walls[k]:
+                p2 = geometry.intersect(wall, center_ray)
+                if p2 is not None:
+                    wall.set_selected(True)
+                else:
+                    wall.set_selected(False)
+
+    def remove_facing_wall(self):
+        length = len(self.camera_rays)
+        mid = round(length / 2)
+        center_ray = self.camera_rays[mid]
+        for k in self.walls:
+            for wall in self.walls[k]:
+                if geometry.intersect(wall, center_ray) is not None:
+                    self.walls[k].remove(wall)
+
     # Creates frame of the current scene
     def generate_snapshot(self):
         # List of all finalized slices (line on screen)
+        self.get_center()
+        self.get_facing_wall()
+
         display_buffer = []
         rays = self.camera_rays.copy()
 
@@ -219,7 +248,7 @@ class Engine:
             length = geometry.length(rays[i])
             color = self.depth_shader(rays[i].get_color(), length)
 
-            # Weird math stuff I cant remember
+            # Weird math stuff I can't remember
             distance_to_projection_plane = self.camera_plane_distance
             distance_to_slice = length * math.cos(math.fabs(rays[i].get_rd() - self.fov_center_ray.get_rd()))
             # THIS LITERALLY TOOK LIKE 8 HOURS TO REALIZE I HAD THIS EQUATION WRONG
@@ -323,6 +352,25 @@ class Engine:
         if keys[pygame.K_ESCAPE]:
             return False
         return True
+
+    def color_wall(self):
+        for k in self.walls:
+            for wall in self.walls[k]:
+                if wall.get_selected():
+                    wall.set_color((255, 0, 0))
+
+    def rotate(self, delta):
+        delta = delta / 360
+        if delta > 0:
+            if self.rotation_delta < (360 * (math.pi / 180)):
+                self.rotation_delta = self.rotation_delta + delta
+            if self.rotation_delta > (359 * (math.pi / 180)):
+                self.rotation_delta = 0
+        if delta < 0:
+            if self.rotation_delta < (1 * (math.pi / 180)):
+                self.rotation_delta = (360 * (math.pi / 180))
+            if self.rotation_delta > (0 * (math.pi / 180)):
+                self.rotation_delta = self.rotation_delta + delta
 
     def check_collisions(self, rays):
         for ray in rays:
