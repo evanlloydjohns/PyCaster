@@ -51,6 +51,7 @@ class Wall(Line):
         self.color = color
         self.width = 1
         self.selected = False
+        self.col_points = []
         super().__init__(p1, p2)
 
     def get_color(self):
@@ -76,6 +77,15 @@ class Wall(Line):
 
     def get_selected(self):
         return self.selected
+
+    def clear_col_points(self):
+        self.col_points.clear()
+
+    def get_col_points(self):
+        return self.col_points
+
+    def add_col_point(self, point):
+        self.col_points.append(point)
 
 
 class Ray(Line):

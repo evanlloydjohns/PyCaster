@@ -375,11 +375,15 @@ class Engine:
     def check_collisions(self, rays):
         for ray in rays:
             for k in self.walls:
+                self.walls[k]
+                # TODO: work on adding col point stuff
+
                 for wall in self.walls[k]:
                     p2 = geometry.intersect(wall, ray)
                     if p2 is not None:
                         ray.set_color(wall.get_color())
                         ray.set_p2(p2)
+                        wall.add_col_point(p2)
 
     # Updates a list of walls in the dict. WILL REPLACE THE WALLS
     def change_walls(self, key, walls):

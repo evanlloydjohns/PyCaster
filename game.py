@@ -35,21 +35,17 @@ def gen_walls():
     w_d = s / d
     h_d = s / d
     wl = [
-        geometry.Wall(((width / 2) + 0, (height / 2) + 0), ((width / 2) + 0, (height / 2) + s),
-                      rand_color()),
-        geometry.Wall(((width / 2) + 0, (height / 2) + s), ((width / 2) + s, (height / 2) + s),
-                      rand_color()),
-        geometry.Wall(((width / 2) + s, (height / 2) + s), ((width / 2) + s, (height / 2) + 0),
-                      rand_color()),
-        geometry.Wall(((width / 2) + s, (height / 2) + 0), ((width / 2) + 0, (height / 2) + 0),
-                      rand_color())
+        geometry.Wall((0, 0), (0, s), rand_color()),
+        geometry.Wall((0, s), (s, s), rand_color()),
+        geometry.Wall((s, s), (s, 0), rand_color()),
+        geometry.Wall((s, 0), (0, 0), rand_color())
     ]
 
     for i in range(d):
         c = []
         for j in range(d):
-            i_x = (width / 2) + i * w_d
-            j_y = (height / 2) + j * h_d
+            i_x = i * w_d
+            j_y = j * h_d
             c.append((i_x, j_y))
         cord_loc.append(c)
     for i in range(d):
@@ -81,8 +77,8 @@ def draw_frame():
     screen = display.get_screen()
     display_buffer = engine.generate_snapshot()
     screen.fill(colors["BLACK"])
-    # pygame.draw.rect(screen, colors["SKY"], ((0, 0), (width, height / 2)))
-    # pygame.draw.rect(screen, colors["GROUND"], ((0, height / 2), (width, height)))
+    pygame.draw.rect(screen, colors["SKY"], ((0, 0), (width, height / 2)))
+    pygame.draw.rect(screen, colors["GROUND"], ((0, height / 2), (width, height)))
     for wall in display_buffer:
         pygame.draw.line(display.get_screen(), wall[0].get_color(), wall[0].get_p1(), wall[0].get_p2(), wall[0].get_width())
         pygame.draw.line(display.get_screen(), wall[1].get_color(), wall[1].get_p1(), wall[1].get_p2(),  wall[1].get_width())
@@ -92,8 +88,9 @@ def draw_debug(fps):
     font = pygame.font.SysFont('freesansbold.ttf', 32)
     text = font.render('fps:{0}'.format(fps), True, (0, 255, 0))
     display_buffer = engine.debug()
-    # for ray in display_buffer:
-    #     pygame.draw.line(display.get_screen(), ray.get_color(), ray.get_p1(), ray.get_p2())
+    for ray in display_buffer:
+        pygame.draw.line(display.get_screen(), ray.get_color(), ray.get_p1(), ray.get_p2())
+        pygame.draw.circle(display.get_screen(), (0, 0, 255), ray.get_p2(), 5, 0)
     display.get_screen().blit(text, (0, 0))
 
 
