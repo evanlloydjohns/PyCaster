@@ -1,8 +1,3 @@
-# TODO: import starting location from game
-# TODO: move creating walls to game, not in engine
-
-from random import randint
-
 import configparser
 import math
 import pygame
@@ -58,7 +53,7 @@ class Engine:
         self.sprint_scalar = float(en_config['sprintScalar'])
 
         # Current position of the camera
-        self.current_position = (self.width / 2 + 150, self.height / 2 + 150)
+        self.current_position = (0, 0)
 
         # Current height of the camera
         self.current_height = 0
@@ -128,7 +123,6 @@ class Engine:
     def update_cone(self):
         self.cone_rays.clear()
         self.fov_lower = self.rotation_delta
-
         self.fov_upper = self.rotation_delta + self.fov
 
         # Account for loop-back on upper bound of fov cone
@@ -181,12 +175,14 @@ class Engine:
         self.camera_rays.clear()
         for i in range(len(self.cone_rays)):
             # Theta = angle from the fov center ray that intersects the camera plane at an even interval
-            theta = math.atan(((geometry.length(self.camera_plane)/len(self.cone_rays)) * (i - ((len(self.cone_rays)-1)/2)))/self.camera_plane_distance)
+            theta = math.atan(((geometry.length(self.camera_plane)/len(self.cone_rays)) *
+                               (i - ((len(self.cone_rays)-1)/2)))/self.camera_plane_distance)
             p1 = self.current_position
             x = p1[0] + (self.view_radius * math.cos(self.fov_center_ray.get_rd() + theta))
             y = p1[1] + (self.view_radius * math.sin(self.fov_center_ray.get_rd() + theta))
             p2 = x, y
-            self.camera_rays.append(geometry.Ray(p1, p2, self.cone_rays[i].get_color(), self.fov_center_ray.get_rd() + theta))
+            self.camera_rays.append(geometry.Ray(p1, p2, self.cone_rays[i].get_color(),
+                                                 self.fov_center_ray.get_rd() + theta))
 
     def update(self):
         # Updates all rays to current position
@@ -200,10 +196,10 @@ class Engine:
         # Checks collisions with projected rays and walls
         self.check_collisions(self.camera_rays)
 
-    def get_center(self):
+    def get_center_ray(self):
         length = len(self.camera_rays)
         mid = round(length / 2)
-        self.camera_rays[mid].set_color((255, 0, 0))
+        return self.camera_rays[mid]
 
     def get_facing_wall(self):
         length = len(self.camera_rays)
@@ -229,7 +225,6 @@ class Engine:
     # Creates frame of the current scene
     def generate_snapshot(self):
         # List of all finalized slices (line on screen)
-        self.get_center()
         self.get_facing_wall()
 
         display_buffer = []
@@ -259,28 +254,11 @@ class Engine:
                 distance_to_slice = 1
             projected_slice_height = (self.wall_height / distance_to_slice) * distance_to_projection_plane
 
-            # For variable Wall height (Does not work)
-            # # Simulate camera height
-            # q = projected_slice_height * ((self.current_height + 1)/2)
-            # r = projected_slice_height - (projected_slice_height * ((self.current_height + 1)/2))
-            #
-            # # So basically I'm trying to make different walls have different heights.
-            # # IDK figure it out
-            # d_wh = self.wall_height - ray.get_wall_height()
-            # q -= d_wh
-            # if q < 0:
-            #     r += q
-            #     q = 0
-
             hw1.set_p1((i * padding, self.height / 2))
             hw1.set_p2((i * padding, (self.height / 2) + projected_slice_height / 2))
-            # For variable wall height (does not work)
-            # hw1.set_p2((i * padding, (self.height / 2) + r))
 
             hw2.set_p1((i * padding, self.height / 2))
             hw2.set_p2((i * padding, (self.height / 2) - projected_slice_height / 2))
-            # For variable wall height (does not work)
-            # hw2.set_p2((i * padding, (self.height / 2) - q))
 
             hw1.set_color(color)
             hw2.set_color(color)
@@ -333,8 +311,10 @@ class Engine:
             self.current_position = p2
         if keys[pygame.K_a]:
             p1 = self.current_position
-            x = (p1[0] - ((self.movement_units + self.sprint_mod) * math.cos(self.rotation_delta + (self.fov / 2) + (90 * (math.pi / 180)))))
-            y = (p1[1] - ((self.movement_units + self.sprint_mod) * math.sin(self.rotation_delta + (self.fov / 2) + (90 * (math.pi / 180)))))
+            x = (p1[0] - ((self.movement_units + self.sprint_mod) * math.cos(self.rotation_delta + (self.fov / 2) +
+                                                                             (90 * (math.pi / 180)))))
+            y = (p1[1] - ((self.movement_units + self.sprint_mod) * math.sin(self.rotation_delta + (self.fov / 2) +
+                                                                             (90 * (math.pi / 180)))))
             p2 = x, y
             self.current_position = p2
         if keys[pygame.K_s]:
@@ -345,8 +325,10 @@ class Engine:
             self.current_position = p2
         if keys[pygame.K_d]:
             p1 = self.current_position
-            x = (p1[0] + ((self.movement_units + self.sprint_mod) * math.cos(self.rotation_delta + (self.fov / 2) + (90 * (math.pi / 180)))))
-            y = (p1[1] + ((self.movement_units + self.sprint_mod) * math.sin(self.rotation_delta + (self.fov / 2) + (90 * (math.pi / 180)))))
+            x = (p1[0] + ((self.movement_units + self.sprint_mod) * math.cos(self.rotation_delta + (self.fov / 2) +
+                                                                             (90 * (math.pi / 180)))))
+            y = (p1[1] + ((self.movement_units + self.sprint_mod) * math.sin(self.rotation_delta + (self.fov / 2) +
+                                                                             (90 * (math.pi / 180)))))
             p2 = x, y
             self.current_position = p2
         if keys[pygame.K_ESCAPE]:
@@ -375,7 +357,6 @@ class Engine:
     def check_collisions(self, rays):
         for ray in rays:
             for k in self.walls:
-                self.walls[k]
                 # TODO: work on adding col point stuff
 
                 for wall in self.walls[k]:
@@ -399,5 +380,11 @@ class Engine:
         else:
             self.walls[key] = walls
 
-    def remove_walls(self, key):
+    def remove_wall_group(self, key):
         self.walls.pop(key)
+
+    def set_cur_position(self, current_position):
+        self.current_position = current_position
+
+    def get_cur_position(self):
+        return self.current_position

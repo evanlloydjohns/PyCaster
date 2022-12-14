@@ -28,29 +28,28 @@ def rand_color():
 
 
 def gen_walls():
-    wl = []
     s = 1000
-    d = 8
+    d = 10
     cord_loc = []
-    w_d = s / d
-    h_d = s / d
+    x_d = s / d
+    y_d = s / d
     wl = [
-        geometry.Wall((0, 0), (0, s), rand_color()),
-        geometry.Wall((0, s), (s, s), rand_color()),
-        geometry.Wall((s, s), (s, 0), rand_color()),
-        geometry.Wall((s, 0), (0, 0), rand_color())
+        geometry.Wall((-s/2, -s/2), (-s/2, s/2), rand_color()),
+        geometry.Wall((-s/2, s/2), (s/2, s/2), rand_color()),
+        geometry.Wall((s/2, s/2), (s/2, -s/2), rand_color()),
+        geometry.Wall((s/2, -s/2), (-s/2, -s/2), rand_color())
     ]
 
     for i in range(d):
         c = []
         for j in range(d):
-            i_x = i * w_d
-            j_y = j * h_d
+            i_x = (i * x_d) - s/2
+            j_y = (j * y_d) - s/2
             c.append((i_x, j_y))
         cord_loc.append(c)
-    for i in range(d):
-        for j in range(d):
-            a = cord_loc[i][j]
+    # for i in range(d):
+    #     for j in range(d):
+    #         a = cord_loc[i][j]
     for i in range(d):
         for j in range(d):
             if j % 2 == 0:
@@ -80,18 +79,24 @@ def draw_frame():
     pygame.draw.rect(screen, colors["SKY"], ((0, 0), (width, height / 2)))
     pygame.draw.rect(screen, colors["GROUND"], ((0, height / 2), (width, height)))
     for wall in display_buffer:
-        pygame.draw.line(display.get_screen(), wall[0].get_color(), wall[0].get_p1(), wall[0].get_p2(), wall[0].get_width())
-        pygame.draw.line(display.get_screen(), wall[1].get_color(), wall[1].get_p1(), wall[1].get_p2(),  wall[1].get_width())
+        pygame.draw.line(screen, wall[0].get_color(), wall[0].get_p1(), wall[0].get_p2(), wall[0].get_width())
+        pygame.draw.line(screen, wall[1].get_color(), wall[1].get_p1(), wall[1].get_p2(),  wall[1].get_width())
+    pygame.draw.line(screen, (255, 255, 255), (width / 2, height / 2 + 10), (width / 2, height / 2 - 10), 1)
+    pygame.draw.line(screen, (255, 255, 255), (width / 2 + 10, height / 2), (width / 2 - 10, height / 2), 1)
 
 
 def draw_debug(fps):
-    font = pygame.font.SysFont('freesansbold.ttf', 32)
-    text = font.render('fps:{0}'.format(fps), True, (0, 255, 0))
-    display_buffer = engine.debug()
-    for ray in display_buffer:
-        pygame.draw.line(display.get_screen(), ray.get_color(), ray.get_p1(), ray.get_p2())
-        pygame.draw.circle(display.get_screen(), (0, 0, 255), ray.get_p2(), 5, 0)
+    if is_detailed_debug:
+        display_buffer = engine.debug()
+        for ray in display_buffer:
+            pygame.draw.line(display.get_screen(), ray.get_color(), ray.get_p1(), ray.get_p2())
+            pygame.draw.circle(display.get_screen(), (0, 0, 255), ray.get_p2(), 5, 0)
+    font = pygame.font.SysFont('freesansbold.ttf', 24)
+    text = font.render('fps:{0}'.format(round(fps, 1)), True, (0, 255, 0))
     display.get_screen().blit(text, (0, 0))
+    cur_pos = engine.get_cur_position()
+    text = font.render('x:{0} y:{1}'.format(round(cur_pos[0], 1), round(cur_pos[1], 1)), True, (0, 255, 0))
+    display.get_screen().blit(text, (0, 20))
 
 
 def run():
@@ -171,6 +176,7 @@ de_config = config['DEFAULT']
 width = int(de_config['width'])
 height = int(de_config['height'])
 is_debug = int(de_config['isDebug'])
+is_detailed_debug = int(de_config['isDetailedDebug'])
 is_full_screen = bool(de_config['isFullScreen'])
 wall_height = int(de_config['wallHeight'])
 
@@ -186,6 +192,7 @@ pygame.display.set_caption("RayCaster")
 display = display.Display(width, height, is_full_screen)
 engine = pycaster.Engine(width, height, wall_height)
 engine.add_walls("default", gen_walls())
+engine.set_cur_position((0, 0))
 running = True
 clock = pygame.time.Clock()
 run()
