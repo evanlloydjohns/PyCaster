@@ -1,6 +1,3 @@
-# TODO: import starting location from game
-# TODO: move creating walls to game, not in engine
-
 from random import randint
 
 import configparser
@@ -15,6 +12,7 @@ def rand_color():
     # randint(0, 255), randint(0, 255), randint(0, 255)
 
 
+# TODO: better integrate the storage and management of circles
 class Engine:
     def __init__(self, width, height, wall_height):
         # initialize the config parsers
@@ -58,13 +56,20 @@ class Engine:
         self.sprint_scalar = float(en_config['sprintScalar'])
 
         # Current position of the camera
-        self.current_position = (self.width / 2 + 150, self.height / 2 + 150)
+        # self.current_position = (self.width / 2 + 150, self.height / 2 + 150)
+        self.current_position = (0, 0)
 
         # Current height of the camera
         self.current_height = 0
 
         # Dictionary containing all lists of walls
         self.walls = {}
+
+        # list of circles
+        self.circles = []
+
+        # Generates test circle
+        # self.gen_circles()
 
         # List of all rays cast from the camera
         self.all_rays = []
@@ -104,6 +109,14 @@ class Engine:
 
         # Update the current location of the camera plane relative to the camera
         self.update_camera_plane()
+
+    def get_pos(self):
+        return self.current_position
+
+    # TODO: TEMP
+    def gen_circles(self):
+        c = geometry.Circle((0, 0), 5, (127, 127, 0))
+        self.circles.append(c)
 
     def gen_rays(self):
         rad_slice = (360.0 / self.ray_count) * (math.pi / 180)
@@ -229,7 +242,6 @@ class Engine:
     # Creates frame of the current scene
     def generate_snapshot(self):
         # List of all finalized slices (line on screen)
-        self.get_center()
         self.get_facing_wall()
 
         display_buffer = []
@@ -246,8 +258,9 @@ class Engine:
             ray = rays[i]
 
             length = geometry.length(rays[i])
+            # TODO: turned depth off, should add to config
             color = self.depth_shader(rays[i].get_color(), length)
-
+            # color = rays[i].get_color()
             # Weird math stuff I can't remember
             distance_to_projection_plane = self.camera_plane_distance
             distance_to_slice = length * math.cos(math.fabs(rays[i].get_rd() - self.fov_center_ray.get_rd()))
@@ -259,28 +272,11 @@ class Engine:
                 distance_to_slice = 1
             projected_slice_height = (self.wall_height / distance_to_slice) * distance_to_projection_plane
 
-            # For variable Wall height (Does not work)
-            # # Simulate camera height
-            # q = projected_slice_height * ((self.current_height + 1)/2)
-            # r = projected_slice_height - (projected_slice_height * ((self.current_height + 1)/2))
-            #
-            # # So basically I'm trying to make different walls have different heights.
-            # # IDK figure it out
-            # d_wh = self.wall_height - ray.get_wall_height()
-            # q -= d_wh
-            # if q < 0:
-            #     r += q
-            #     q = 0
-
             hw1.set_p1((i * padding, self.height / 2))
             hw1.set_p2((i * padding, (self.height / 2) + projected_slice_height / 2))
-            # For variable wall height (does not work)
-            # hw1.set_p2((i * padding, (self.height / 2) + r))
 
             hw2.set_p1((i * padding, self.height / 2))
             hw2.set_p2((i * padding, (self.height / 2) - projected_slice_height / 2))
-            # For variable wall height (does not work)
-            # hw2.set_p2((i * padding, (self.height / 2) - q))
 
             hw1.set_color(color)
             hw2.set_color(color)
@@ -375,15 +371,18 @@ class Engine:
     def check_collisions(self, rays):
         for ray in rays:
             for k in self.walls:
-                self.walls[k]
-                # TODO: work on adding col point stuff
-
                 for wall in self.walls[k]:
                     p2 = geometry.intersect(wall, ray)
                     if p2 is not None:
                         ray.set_color(wall.get_color())
                         ray.set_p2(p2)
                         wall.add_col_point(p2)
+            for c in self.circles:
+                p2 = geometry.circle_line_segment_intersection(c.get_p1(), c.get_r(), ray.get_p1(), ray.get_p2())
+                if p2 is not None:
+                    ray.set_color(c.get_color())
+                    ray.set_p2(p2)
+                    c.add_col_point(p2)
 
     # Updates a list of walls in the dict. WILL REPLACE THE WALLS
     def change_walls(self, key, walls):
