@@ -56,7 +56,6 @@ class Engine:
         self.sprint_scalar = float(en_config['sprintScalar'])
 
         # Current position of the camera
-        # self.current_position = (self.width / 2 + 150, self.height / 2 + 150)
         self.current_position = (0, 0)
 
         # Current height of the camera
@@ -141,7 +140,6 @@ class Engine:
     def update_cone(self):
         self.cone_rays.clear()
         self.fov_lower = self.rotation_delta
-
         self.fov_upper = self.rotation_delta + self.fov
 
         # Account for loop-back on upper bound of fov cone
@@ -194,12 +192,14 @@ class Engine:
         self.camera_rays.clear()
         for i in range(len(self.cone_rays)):
             # Theta = angle from the fov center ray that intersects the camera plane at an even interval
-            theta = math.atan(((geometry.length(self.camera_plane)/len(self.cone_rays)) * (i - ((len(self.cone_rays)-1)/2)))/self.camera_plane_distance)
+            theta = math.atan(((geometry.length(self.camera_plane)/len(self.cone_rays)) *
+                               (i - ((len(self.cone_rays)-1)/2)))/self.camera_plane_distance)
             p1 = self.current_position
             x = p1[0] + (self.view_radius * math.cos(self.fov_center_ray.get_rd() + theta))
             y = p1[1] + (self.view_radius * math.sin(self.fov_center_ray.get_rd() + theta))
             p2 = x, y
-            self.camera_rays.append(geometry.Ray(p1, p2, self.cone_rays[i].get_color(), self.fov_center_ray.get_rd() + theta))
+            self.camera_rays.append(geometry.Ray(p1, p2, self.cone_rays[i].get_color(),
+                                                 self.fov_center_ray.get_rd() + theta))
 
     def update(self):
         # Updates all rays to current position
@@ -213,10 +213,10 @@ class Engine:
         # Checks collisions with projected rays and walls
         self.check_collisions(self.camera_rays)
 
-    def get_center(self):
+    def get_center_ray(self):
         length = len(self.camera_rays)
         mid = round(length / 2)
-        self.camera_rays[mid].set_color((255, 0, 0))
+        return self.camera_rays[mid]
 
     def get_facing_wall(self):
         length = len(self.camera_rays)
@@ -258,9 +258,9 @@ class Engine:
             ray = rays[i]
 
             length = geometry.length(rays[i])
-            # TODO: turned depth off, should add to config
+            # TODO: Should add depth to config
             color = self.depth_shader(rays[i].get_color(), length)
-            # color = rays[i].get_color()
+
             # Weird math stuff I can't remember
             distance_to_projection_plane = self.camera_plane_distance
             distance_to_slice = length * math.cos(math.fabs(rays[i].get_rd() - self.fov_center_ray.get_rd()))
@@ -329,8 +329,10 @@ class Engine:
             self.current_position = p2
         if keys[pygame.K_a]:
             p1 = self.current_position
-            x = (p1[0] - ((self.movement_units + self.sprint_mod) * math.cos(self.rotation_delta + (self.fov / 2) + (90 * (math.pi / 180)))))
-            y = (p1[1] - ((self.movement_units + self.sprint_mod) * math.sin(self.rotation_delta + (self.fov / 2) + (90 * (math.pi / 180)))))
+            x = (p1[0] - ((self.movement_units + self.sprint_mod) * math.cos(self.rotation_delta + (self.fov / 2) +
+                                                                             (90 * (math.pi / 180)))))
+            y = (p1[1] - ((self.movement_units + self.sprint_mod) * math.sin(self.rotation_delta + (self.fov / 2) +
+                                                                             (90 * (math.pi / 180)))))
             p2 = x, y
             self.current_position = p2
         if keys[pygame.K_s]:
@@ -341,8 +343,10 @@ class Engine:
             self.current_position = p2
         if keys[pygame.K_d]:
             p1 = self.current_position
-            x = (p1[0] + ((self.movement_units + self.sprint_mod) * math.cos(self.rotation_delta + (self.fov / 2) + (90 * (math.pi / 180)))))
-            y = (p1[1] + ((self.movement_units + self.sprint_mod) * math.sin(self.rotation_delta + (self.fov / 2) + (90 * (math.pi / 180)))))
+            x = (p1[0] + ((self.movement_units + self.sprint_mod) * math.cos(self.rotation_delta + (self.fov / 2) +
+                                                                             (90 * (math.pi / 180)))))
+            y = (p1[1] + ((self.movement_units + self.sprint_mod) * math.sin(self.rotation_delta + (self.fov / 2) +
+                                                                             (90 * (math.pi / 180)))))
             p2 = x, y
             self.current_position = p2
         if keys[pygame.K_ESCAPE]:
@@ -371,6 +375,7 @@ class Engine:
     def check_collisions(self, rays):
         for ray in rays:
             for k in self.walls:
+                # TODO: work on adding col point stuff
                 for wall in self.walls[k]:
                     p2 = geometry.intersect(wall, ray)
                     if p2 is not None:
@@ -398,5 +403,11 @@ class Engine:
         else:
             self.walls[key] = walls
 
-    def remove_walls(self, key):
+    def remove_wall_group(self, key):
         self.walls.pop(key)
+
+    def set_cur_position(self, current_position):
+        self.current_position = current_position
+
+    def get_cur_position(self):
+        return self.current_position
