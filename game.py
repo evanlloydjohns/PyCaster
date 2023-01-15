@@ -10,8 +10,8 @@ import pycaster
 # Collection of pre-defined colors
 colors = {
     "RED": (255, 0, 0),
-    "SKY": (125, 175, 250),
-    "GROUND": (68, 74, 68),
+    "SKY": (63, 63, 63),
+    "GROUND": (63, 63, 63),
     "GREEN": (0, 255, 0),
     "BLUE": (0, 0, 255),
     "BLACK": (0, 0, 0),
@@ -28,10 +28,10 @@ def gen_walls():
     x_d = s / d
     y_d = s / d
     wl = [
-        geometry.Wall((-s/2, -s/2), (-s/2, s/2), pycaster.rand_color()),
-        geometry.Wall((-s/2, s/2), (s/2, s/2), pycaster.rand_color()),
-        geometry.Wall((s/2, s/2), (s/2, -s/2), pycaster.rand_color()),
-        geometry.Wall((s/2, -s/2), (-s/2, -s/2), pycaster.rand_color())
+        geometry.Wall((-s/2, -s/2), (-s/2, s/2), colors["WHITE"]),
+        geometry.Wall((-s/2, s/2), (s/2, s/2), colors["WHITE"]),
+        geometry.Wall((s/2, s/2), (s/2, -s/2), colors["WHITE"]),
+        geometry.Wall((s/2, -s/2), (-s/2, -s/2), colors["WHITE"])
     ]
 
     for i in range(d):
@@ -45,18 +45,21 @@ def gen_walls():
         for j in range(d):
             if j % 2 == 0:
                 if j + 1 is not d:
-                    wl.append(geometry.Wall(cord_loc[i][j], cord_loc[i][j + 1], pycaster.rand_color()))
+                    wl.append(geometry.Wall(cord_loc[i][j], cord_loc[i][j + 1], colors["WHITE"]))
                 else:
                     pass
             if i % 2 == 0:
                 if i + 1 is not d:
-                    wl.append(geometry.Wall(cord_loc[i][j], cord_loc[i + 1][j], pycaster.rand_color()))
+                    wl.append(geometry.Wall(cord_loc[i][j], cord_loc[i + 1][j], colors["WHITE"]))
     return wl
 
 
 def gen_circles():
     cl = []
-    cl.append(geometry.Circle((100, 100), 10, (255, 0, 0)))
+    # cl.append(geometry.Circle((100, 100), 3, (255, 0, 0)))
+    # cl.append(geometry.Circle((110, 105), 3, (0, 255, 0)))
+    # cl.append(geometry.Circle((115, 110), 3, (0, 0, 255)))
+    # cl.append(geometry.Circle((100, 110), 3, (255, 0, 255)))
     return cl
 
 
@@ -81,14 +84,16 @@ def draw_debug():
         for ray in display_buffer:
             pygame.draw.line(screen, ray.get_color(), ray.get_p1(), ray.get_p2())
             pygame.draw.circle(screen, (0, 0, 255), ray.get_p2(), 5, 0)
-    font = pygame.font.SysFont('freesansbold.ttf', 24)
-    text = font.render('fps:{0}'.format(round(clock.get_fps(), 1)), True, (0, 255, 0))
-    screen.blit(text, (0, 0))
     cur_pos = engine.get_cur_position()
-    text = font.render('x:{0} y:{1}'.format(round(cur_pos[0], 1), round(cur_pos[1], 1)), True, (0, 255, 0))
-    screen.blit(text, (0, 20))
-    text = font.render('obj_count: {0}'.format(engine.get_world_object_count()), True, (0, 255, 0))
-    screen.blit(text, (0, 40))
+    font_label = ['fps:{0}'.format(round(clock.get_fps(), 1)),
+                  'x:{0} y:{1}'.format(round(cur_pos[0], 1), round(cur_pos[1], 1)),
+                  'total_obj_count: {0}'.format(engine.get_world_object_count()),
+                  'camera_ray_count: {0}'.format(len(engine.camera_rays)),
+                  'total_ray_count: {0}'.format(engine.ray_count)]
+    font = pygame.font.SysFont('consolas.ttf', 24)
+    for i in range(len(font_label)):
+        text = font.render(font_label[i], True, (0, 255, 0))
+        screen.blit(text, (5, i * 20 + 5))
 
 
 def process_inputs():

@@ -123,6 +123,9 @@ class Engine:
         # Update the current location of the camera plane relative to the camera
         self.update_camera_plane()
 
+        # Color of distance fog
+        self.fog_color = (63, 63, 63)
+
     def get_pos(self):
         return self.current_position
 
@@ -303,7 +306,7 @@ class Engine:
             # Create the segment
             seg_p1 = (segment_count * padding, (self.height / 2) - projected_segment_height / 2)
             seg_p2 = (segment_count * padding, (self.height / 2) + projected_segment_height / 2)
-            seg_c = self.depth_shader(ray.get_color(), ray_length)
+            seg_c = self.depth_shader(ray.get_color(), ray_length, aug=self.fog_color)
 
             # Add segment to frame
             frame.add_segment(Segment(seg_c, seg_p1, seg_p2))
@@ -313,11 +316,10 @@ class Engine:
     def debug(self):
         return self.camera_rays
 
+    # TODO: Investigate the addition of a radial gradient to simulate a light source from the player location
     # Behold, the epitome of list comprehension
-    def depth_shader(self, col, length, aug=None):
-        if aug is None:
-            aug = [0, 0, 0]
-        return [max(0, col[i] - ((col[i] - aug[i]) * math.log(length + 1) / math.log(self.lighting_distance + 1))) for i
+    def depth_shader(self, col, length, aug):
+        return [max(aug[i], col[i] - ((col[i] - aug[i]) * math.log(length + 1) / math.log(self.lighting_distance + 1))) for i
                 in range(len(col))]
 
     def process_mouse_movement(self, mouse_pos):
