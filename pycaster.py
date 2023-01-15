@@ -59,7 +59,17 @@ class Engine:
         self.current_height = 0
 
         # Dictionary containing all lists of walls
+        # We store each grouping of walls in a dictionary so that we can differentiate what walls belong to
+        # what processes. The initial group of walls is called "Default". If we want to add more groups, we just
+        # create a new group name and add them to the dictionary. This gives us the ability to potentially store
+        # other types of objects in the future, and to be able to handle them differently depending on their key/tag
         self.walls = {}
+
+        # list of circles
+        self.circles = []
+
+        # Generates test circle
+        # self.gen_circles()
 
         # List of all rays cast from the camera
         self.all_rays = []
@@ -94,12 +104,31 @@ class Engine:
         y = (p1[1] + (self.view_radius * math.sin(self.rotation_delta + (self.fov / 2))))
         self.fov_center_ray = geometry.Ray(p1, (x, y), (255, 255, 255), 0)
 
+        # Used for looking up the appropriate action for a key press
+        self.movements = {
+            pygame.K_a: self.move_left,
+            pygame.K_d: self.move_right,
+            pygame.K_s: self.move_backward,
+            pygame.K_w: self.move_forward,
+            pygame.K_q: self.rotate_left,
+            pygame.K_e: self.rotate_right
+        }
+
         # Update the fov cone
         self.update_cone()
 
         # Update the current location of the camera plane relative to the camera
         self.update_camera_plane()
 
+    def get_pos(self):
+        return self.current_position
+
+    # Using this for testing out circles
+    def gen_circles(self):
+        c = geometry.Circle((0, 0), 5, (127, 127, 0))
+        self.circles.append(c)
+
+    # Initializes all the rays
     def gen_rays(self):
         rad_slice = (360.0 / self.ray_count) * (math.pi / 180)
         p1 = self.current_position
@@ -110,6 +139,7 @@ class Engine:
             ray = geometry.Ray(p1, p2, (255, 255, 255), (rad_slice * i))
             self.all_rays.append(ray)
 
+    # Updates all ray origin locations to current position
     def update_rays(self):
         rad_slice = (360.0 / self.ray_count) * (math.pi / 180)
         p1 = self.current_position
@@ -120,6 +150,7 @@ class Engine:
             self.all_rays[i].set_p1(p1)
             self.all_rays[i].set_p2(p2)
 
+    # Updates what rays are included in our FoV cone
     def update_cone(self):
         self.cone_rays.clear()
         self.fov_lower = self.rotation_delta
@@ -152,6 +183,7 @@ class Engine:
                 if rd < self.fov_lower and rd < self.fov_upper:
                     self.cone_rays.append(self.all_rays[i])
 
+    # Updates the plane to which we are rendering the rays from (cant render from a single point, need to use plane)
     def update_camera_plane(self):
         r1 = self.cone_rays[0]
         r2 = self.cone_rays[len(self.cone_rays) - 1]
@@ -167,6 +199,7 @@ class Engine:
 
         self.camera_plane = geometry.Line(p1, p2)
 
+    # Updates the angle each ray is cast at from the camera plane
     def update_camera(self):
         # In order to prevent a pseudo fish-eye effect, we need to account for the
         # angle which the rays are cast from. We do this by shifting the origin of
@@ -184,6 +217,7 @@ class Engine:
             self.camera_rays.append(geometry.Ray(p1, p2, self.cone_rays[i].get_color(),
                                                  self.fov_center_ray.get_rd() + theta))
 
+    # Calls all necessary updates for each cycle
     def update(self):
         # Updates all rays to current position
         self.update_rays()
@@ -196,15 +230,14 @@ class Engine:
         # Checks collisions with projected rays and walls
         self.check_collisions(self.camera_rays)
 
+    # Returns the ray at the center of the FoV cone
     def get_center_ray(self):
-        length = len(self.camera_rays)
-        mid = round(length / 2)
-        return self.camera_rays[mid]
+        return self.camera_rays[round(len(self.camera_rays) / 2)]
 
-    def get_facing_wall(self):
-        length = len(self.camera_rays)
-        mid = round(length / 2)
-        center_ray = self.camera_rays[mid]
+    # Sets the wall we are currently looking at to be selected
+    # Used in figuring out what wall (or object) we are looking at
+    def set_facing_wall(self):
+        center_ray = self.get_center_ray()
         for k in self.walls:
             for wall in self.walls[k]:
                 p2 = geometry.intersect(wall, center_ray)
@@ -213,10 +246,18 @@ class Engine:
                 else:
                     wall.set_selected(False)
 
+    # Returns the wall currently being looked at
+    # Might be able to use command pattern?
+    def get_facing_wall(self):
+        center_ray = self.get_center_ray()
+        for k in self.walls:
+            for wall in self.walls[k]:
+                if wall.get_selected():
+                    return wall
+
+    # Deletes the wall we are currently looking at
     def remove_facing_wall(self):
-        length = len(self.camera_rays)
-        mid = round(length / 2)
-        center_ray = self.camera_rays[mid]
+        center_ray = self.get_center_ray()
         for k in self.walls:
             for wall in self.walls[k]:
                 if geometry.intersect(wall, center_ray) is not None:
@@ -224,8 +265,7 @@ class Engine:
 
     # Creates frame of the current scene
     def generate_snapshot(self):
-        # List of all finalized slices (line on screen)
-        self.get_facing_wall()
+        self.set_facing_wall()
 
         display_buffer = []
         rays = self.camera_rays.copy()
@@ -237,8 +277,6 @@ class Engine:
             # Top and bottom halves of the slice
             hw1 = geometry.Wall((0, 0), (0, 0), (0, 0, 0))
             hw2 = geometry.Wall((0, 0), (0, 0), (0, 0, 0))
-
-            ray = rays[i]
 
             length = geometry.length(rays[i])
             color = self.depth_shader(rays[i].get_color(), length)
@@ -284,56 +322,96 @@ class Engine:
                 c[i] = 0
         return c
 
-    def move(self, keys):
+    # TODO: Use a dictionary here instead of gross if statements. Have the values be a corresponding function
+    def process_keys(self, keys):
+        # Handle Sprint
         if keys[pygame.K_LSHIFT]:
             self.sprint_mod = self.sprint_scalar * self.movement_units
         else:
             self.sprint_mod = 0
-        if keys[pygame.K_UP]:
-            self.current_height += 0.03
-        if keys[pygame.K_DOWN]:
-            self.current_height -= 0.03
-        if keys[pygame.K_e]:
-            if self.rotation_delta < (360 * (math.pi/180)):
-                self.rotation_delta = self.rotation_delta + self.rotation_units
-            if self.rotation_delta > (359 * (math.pi/180)):
-                self.rotation_delta = 0
-        if keys[pygame.K_q]:
-            if self.rotation_delta < (1 * (math.pi/180)):
-                self.rotation_delta = (360 * (math.pi/180))
-            if self.rotation_delta > (0 * (math.pi/180)):
-                self.rotation_delta = self.rotation_delta - self.rotation_units
-        if keys[pygame.K_w]:
-            p1 = self.current_position
-            x = (p1[0] + ((self.movement_units + self.sprint_mod) * math.cos(self.rotation_delta + (self.fov / 2))))
-            y = (p1[1] + ((self.movement_units + self.sprint_mod) * math.sin(self.rotation_delta + (self.fov / 2))))
-            p2 = x, y
-            self.current_position = p2
-        if keys[pygame.K_a]:
-            p1 = self.current_position
-            x = (p1[0] - ((self.movement_units + self.sprint_mod) * math.cos(self.rotation_delta + (self.fov / 2) +
-                                                                             (90 * (math.pi / 180)))))
-            y = (p1[1] - ((self.movement_units + self.sprint_mod) * math.sin(self.rotation_delta + (self.fov / 2) +
-                                                                             (90 * (math.pi / 180)))))
-            p2 = x, y
-            self.current_position = p2
-        if keys[pygame.K_s]:
-            p1 = self.current_position
-            x = (p1[0] - ((self.movement_units + self.sprint_mod) * math.cos(self.rotation_delta + (self.fov / 2))))
-            y = (p1[1] - ((self.movement_units + self.sprint_mod) * math.sin(self.rotation_delta + (self.fov / 2))))
-            p2 = x, y
-            self.current_position = p2
-        if keys[pygame.K_d]:
-            p1 = self.current_position
-            x = (p1[0] + ((self.movement_units + self.sprint_mod) * math.cos(self.rotation_delta + (self.fov / 2) +
-                                                                             (90 * (math.pi / 180)))))
-            y = (p1[1] + ((self.movement_units + self.sprint_mod) * math.sin(self.rotation_delta + (self.fov / 2) +
-                                                                             (90 * (math.pi / 180)))))
-            p2 = x, y
-            self.current_position = p2
+        # Handle closing the game
         if keys[pygame.K_ESCAPE]:
             return False
+        # Handle all other keys
+        for key in self.movements:
+            if keys[key]:
+                self.movements[key]()
         return True
+
+    def move_left(self):
+        p1 = self.current_position
+        x = (p1[0] - ((self.movement_units + self.sprint_mod) *
+                      math.cos(self.rotation_delta + (self.fov / 2) + (90 * (math.pi / 180)))))
+        y = (p1[1] - ((self.movement_units + self.sprint_mod) *
+                      math.sin(self.rotation_delta + (self.fov / 2) + (90 * (math.pi / 180)))))
+        p2 = x, y
+        if not self.check_player_collision(p1, p2):
+            self.current_position = p2
+
+    def move_right(self):
+        p1 = self.current_position
+        x = (p1[0] + ((self.movement_units + self.sprint_mod) *
+                      math.cos(self.rotation_delta + (self.fov / 2) + (90 * (math.pi / 180)))))
+        y = (p1[1] + ((self.movement_units + self.sprint_mod) *
+                      math.sin(self.rotation_delta + (self.fov / 2) + (90 * (math.pi / 180)))))
+        p2 = x, y
+        if not self.check_player_collision(p1, p2):
+            self.current_position = p2
+
+    def move_forward(self):
+        p1 = self.current_position
+        x = (p1[0] + ((self.movement_units + self.sprint_mod) * math.cos(self.rotation_delta + (self.fov / 2))))
+        y = (p1[1] + ((self.movement_units + self.sprint_mod) * math.sin(self.rotation_delta + (self.fov / 2))))
+        p2 = x, y
+        if not self.check_player_collision(p1, p2):
+            self.current_position = p2
+
+    def move_backward(self):
+        p1 = self.current_position
+        x = (p1[0] - ((self.movement_units + self.sprint_mod) * math.cos(self.rotation_delta + (self.fov / 2))))
+        y = (p1[1] - ((self.movement_units + self.sprint_mod) * math.sin(self.rotation_delta + (self.fov / 2))))
+        p2 = x, y
+        if not self.check_player_collision(p1, p2):
+            self.current_position = p2
+
+    def rotate_right(self):
+        if self.rotation_delta < (360 * (math.pi / 180)):
+            self.rotation_delta = self.rotation_delta + self.rotation_units
+        if self.rotation_delta > (359 * (math.pi / 180)):
+            self.rotation_delta = 0
+
+    def rotate_left(self):
+        if self.rotation_delta < (1 * (math.pi / 180)):
+            self.rotation_delta = (360 * (math.pi / 180))
+        if self.rotation_delta > (0 * (math.pi / 180)):
+            self.rotation_delta = self.rotation_delta - self.rotation_units
+
+    # Line/Line collision courtesy of http://www.jeffreythompson.org/collision-detection/line-line.php
+    def check_player_collision(self, cur_pos, new_pos):
+        for ray in self.camera_rays:
+            wall = ray.get_wall()
+            if wall is not None:
+                w1 = wall.get_p1()
+                w2 = wall.get_p2()
+
+                x1 = cur_pos[0]
+                y1 = cur_pos[1]
+                x2 = new_pos[0]
+                y2 = new_pos[1]
+                x3 = w1[0]
+                y3 = w1[1]
+                x4 = w2[0]
+                y4 = w2[1]
+
+                uA = ((x4 - x3)*(y1 - y3) - (y4 - y3)*(x1 - x3)) / ((y4 - y3)*(x2 - x1) - (x4 - x3)*(y2 - y1))
+                uB = ((x2 - x1)*(y1 - y3) - (y2 - y1)*(x1 - x3)) / ((y4 - y3)*(x2 - x1) - (x4 - x3)*(y2 - y1))
+
+                if 0 <= uA <= 1 and 0 <= uB <= 1:
+                    ix = x1 + (uA * (x2 - x1))
+                    iy = y1 + (uA * (y2 - y1))
+                    print(ix, iy)
+                    return True
+        return False
 
     def color_wall(self):
         for k in self.walls:
@@ -357,14 +435,20 @@ class Engine:
     def check_collisions(self, rays):
         for ray in rays:
             for k in self.walls:
-                # TODO: work on adding col point stuff
-
                 for wall in self.walls[k]:
                     p2 = geometry.intersect(wall, ray)
                     if p2 is not None:
                         ray.set_color(wall.get_color())
                         ray.set_p2(p2)
+                        ray.set_wall(wall)
+                        # Putting this here so I don't forget, col_points will be used in texture mapping & debug
                         wall.add_col_point(p2)
+            for c in self.circles:
+                p2 = geometry.circle_line_segment_intersection(c.get_p1(), c.get_r(), ray.get_p1(), ray.get_p2())
+                if p2 is not None:
+                    ray.set_color(c.get_color())
+                    ray.set_p2(p2)
+                    c.add_col_point(p2)
 
     # Updates a list of walls in the dict. WILL REPLACE THE WALLS
     def change_walls(self, key, walls):

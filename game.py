@@ -2,7 +2,6 @@ from random import randint
 
 import configparser
 import pygame
-import math
 
 import display
 import geometry
@@ -47,9 +46,6 @@ def gen_walls():
             j_y = (j * y_d) - s/2
             c.append((i_x, j_y))
         cord_loc.append(c)
-    # for i in range(d):
-    #     for j in range(d):
-    #         a = cord_loc[i][j]
     for i in range(d):
         for j in range(d):
             if j % 2 == 0:
@@ -60,15 +56,6 @@ def gen_walls():
             if i % 2 == 0:
                 if i + 1 is not d:
                     wl.append(geometry.Wall(cord_loc[i][j], cord_loc[i + 1][j], rand_color()))
-    print(cord_loc)
-    # for i in range(4):
-    #     c = rand_color()
-    #     p1 = (i - 0) * (i - 3) * ((width / 2) * (i - 2) + (width / -2) * (i - 1)), \
-    #          (i - 0) * (i - 1) * ((height / -2) * (i - 3) + (height / 6) * (i - 2))
-    #     p2 = (i - 2) * (i - 3) * ((width / -6) * (i - 1) + (width / 2) * (i - 0)), \
-    #          (i - 0) * (i - 3) * ((height / 2) * (i - 2) + (height / -2) * (i - 1))
-    #     w = geometry.Wall(p1, p2, c)
-    #     wl.append(w)
     return wl
 
 
@@ -99,72 +86,61 @@ def draw_debug(fps):
     display.get_screen().blit(text, (0, 20))
 
 
+def process_inputs():
+    keys = pygame.key.get_pressed()
+    running = engine.process_keys(keys)
+    for event in pygame.event.get():
+        # Check for exit condition
+        if event.type == pygame.QUIT:
+            running = False
+        if event.type == pygame.MOUSEBUTTONDOWN:
+            # Color wall on left click
+            if event.button == 1:
+                engine.color_wall()
+            # Remove wall on right click
+            if event.button == 3:
+                engine.remove_facing_wall()
+
+    # TODO: Delink camera update from this method
+    # Get mouse movement
+    mouse_curr = pygame.mouse.get_pos()
+    pygame.mouse.set_pos(width / 2, height / 2)
+    engine.rotate(mouse_curr[0] - (width / 2))
+
+    # # If building wall, send mouse position for wall preview
+    # if lcb:
+    #     engine.change_walls("temp", [geometry.Wall(lc[0], pygame.mouse.get_pos(), (0, 0, 0))])
+
+    return running
+
+
+def update():
+    # Update Engine
+    engine.update()
+
+
+def process_output():
+    draw_frame()
+
+    # Draw debug
+    if is_debug:
+        draw_debug(clock.get_fps())
+
+    # Draw buffered frame
+    pygame.display.flip()
+
+
 def run():
-    global running
-    # position list for mouse button clicks
-    lc, rc, mc = [], [], []
-    screen_center = (width / 2, height / 2)
-    # Used to send mouse position when creating a wall
-    lcb = False
+    running = True
     # Set  up mouse
     pygame.mouse.set_pos(width / 2, height / 2)
     pygame.mouse.set_visible(False)
     while running:
-        keys = pygame.key.get_pressed()
-        # Pass key inputs on to camera movement method
-        running = engine.move(keys)
-        # Look through all events
-        for event in pygame.event.get():
-            if event.type == pygame.QUIT:
-                running = False
-            if event.type == pygame.MOUSEBUTTONDOWN:
-                # Start drawing a wall
-                if event.button == 1:
-                    engine.color_wall()
-                    # lcb = not lcb
-                    # lc.append(pygame.mouse.get_pos())
-                    # if len(lc) > 1:
-                    #     engine.add_walls("click", [geometry.Wall(lc[0], lc[1], rand_color())])
-                    #     lc.clear()
-                    #     engine.remove_walls("temp")
-                # Start drawing a square
-                if event.button == 2:
-                    mc.append(pygame.mouse.get_pos())
-                    if len(mc) > 1:
-                        c = rand_color()
-                        engine.add_walls("click", [geometry.Wall((mc[0][0], mc[0][1]), (mc[1][0], mc[0][1]), c)])
-                        engine.add_walls("click", [geometry.Wall((mc[1][0], mc[0][1]), (mc[1][0], mc[1][1]), c)])
-                        engine.add_walls("click", [geometry.Wall((mc[1][0], mc[1][1]), (mc[0][0], mc[1][1]), c)])
-                        engine.add_walls("click", [geometry.Wall((mc[0][0], mc[1][1]), (mc[0][0], mc[0][1]), c)])
-                        mc.clear()
-                if event.button == 3:
-                    engine.remove_facing_wall()
-
-        # Get mouse movement
-        mouse_curr = pygame.mouse.get_pos()
-        pygame.mouse.set_pos(width / 2, height / 2)
-        engine.rotate(mouse_curr[0] - screen_center[0])
-
-        # If building wall, send mouse position for wall preview
-        if lcb:
-            engine.change_walls("temp", [geometry.Wall(lc[0], pygame.mouse.get_pos(), (0, 0, 0))])
-
-        # Update engine
-        engine.update()
-
-        # Generate next frame
-        draw_frame()
-
-        # Draw debug
-        if is_debug:
-            draw_debug(clock.get_fps())
-
-        # Draw buffered frame
-        pygame.display.flip()
-
+        running = process_inputs()
+        update()
+        process_output()
         # Tick the clock
         clock.tick(60)
-
     pygame.quit()
 
 
@@ -192,7 +168,6 @@ pygame.display.set_caption("RayCaster")
 display = display.Display(width, height, is_full_screen)
 engine = pycaster.Engine(width, height, wall_height)
 engine.add_walls("default", gen_walls())
-engine.set_cur_position((0, 0))
-running = True
+engine.set_cur_position((20, 20))
 clock = pygame.time.Clock()
 run()
