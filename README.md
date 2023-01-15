@@ -17,7 +17,7 @@ That is not to say that this has never been done before (As it most certainly ha
 Tasks:
 - [x] Add a legitimate ReadMe!
 - [ ] Add better documentation (Seriously dude, document your code)
-- [ ] Unbind world space from screen space
+- [x] Unbind world space from screen space
 - [ ] Separate builds into different branches
 - [ ] Optimize calculations by dynamically selecting walls/rays
 - [ ] Add textures
