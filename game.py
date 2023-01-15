@@ -5,6 +5,7 @@ import geometry
 import pycaster
 
 
+# TODO: Investigate adding a wall culling script for walls that are a subset of other walls
 # TODO: Add a GUI module for implementation of a start menu and pause menu
 # Collection of pre-defined colors
 colors = {
@@ -55,6 +56,7 @@ def gen_walls():
 
 def gen_circles():
     cl = []
+    # cl.append(geometry.Circle((100, 100), 10, (255, 0, 0)))
     return cl
 
 
@@ -88,6 +90,7 @@ def draw_debug():
 
 
 def process_inputs():
+    global loop_i, mli_limit
     # Send engine keyboard input
     keys = pygame.key.get_pressed()
     running = engine.process_keys(keys)
@@ -102,11 +105,16 @@ def process_inputs():
                 engine.color_wall(pycaster.rand_color())
             # Remove wall on right click
             if event.button == 3:
-                engine.remove_facing_wall()
+                engine.remove_facing_object()
 
-    # Send engine mouse input
-    engine.process_mouse_movement(pygame.mouse.get_pos())
-    pygame.mouse.set_pos(width / 2, height / 2)
+    # Send engine mouse input every 2 loops
+    if loop_i == mli_limit:
+        # This allows for a more precise rotation delta, and smoother movement
+        engine.process_mouse_movement(pygame.mouse.get_pos())
+        pygame.mouse.set_pos(width / 2, height / 2)
+        loop_i = 0
+    else:
+        loop_i += 1
 
     return running
 
@@ -129,9 +137,6 @@ def process_output():
 
 def run():
     running = True
-    # Set  up mouse
-    pygame.mouse.set_pos(width / 2, height / 2)
-    pygame.mouse.set_visible(False)
     while running:
         running = process_inputs()
         update()
@@ -145,16 +150,27 @@ def run():
 config = configparser.ConfigParser()
 config.read('settings.ini')
 de_config = config['DEFAULT']
-mo_config = config['MOVEMENT']
 
-width = int(de_config['width'])
-height = int(de_config['height'])
-is_debug = int(de_config['isDebug'])
-is_detailed_debug = int(de_config['isDetailedDebug'])
-is_full_screen = bool(de_config['isFullScreen'])
-wall_height = int(de_config['wallHeight'])
+width = de_config.getint('width')
+height = de_config.getint('height')
+is_debug = de_config.getboolean('isDebug')
+is_detailed_debug = de_config.getboolean('isDetailedDebug')
+is_full_screen = de_config.getboolean('isFullScreen')
+wall_height = de_config.getint('wallHeight')
 
 pygame.init()
+
+# Number of main loop iterations before reading mouse movement
+mli_limit = 2
+# Used in differentiating one main loop cycle from the next
+loop_i = 0
+
+# If using full screen then set width and height to display resolution
+if is_full_screen:
+    width = pygame.display.Info().current_w
+    height = pygame.display.Info().current_h
+    mli_limit = 0
+
 pygame.font.init()
 pygame.display.set_caption("RayCaster")
 pygame.display.set_mode((width, height), is_full_screen)
@@ -164,4 +180,10 @@ engine.add_walls("default", gen_walls())
 engine.add_circles("default", gen_circles())
 
 clock = pygame.time.Clock()
+
+# Set  up mouse
+pygame.mouse.set_pos(width / 2, height / 2)
+if not is_detailed_debug:
+    pygame.mouse.set_visible(False)
+
 run()

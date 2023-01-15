@@ -22,6 +22,7 @@ def intersect(l1, l2):
     return None
 
 
+# TODO: Issue with setting circle to selected, has to do with only finding one intersection while looking at circle
 # Thanks to this magnificent person:
 # https://stackoverflow.com/questions/30844482/what-is-most-efficient-way-to-find-the-intersection-of-a-line-and-a-circle-in-py
 # Adapted to work with the current codebase

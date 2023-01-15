@@ -93,7 +93,7 @@ class Engine:
         self.camera_rays = []
 
         # Angle each ray is separated from the previous ray
-        self.rotation_delta = (90 * (math.pi / 180)) - (self.fov/2)
+        self.rotation_delta = (90 * (math.pi / 180)) - (self.fov / 2)
 
         # Angle the fov cone starts at
         self.fov_lower = self.rotation_delta
@@ -155,8 +155,8 @@ class Engine:
         self.fov_upper = self.rotation_delta + self.fov
 
         # Account for loop-back on upper bound of fov cone
-        if self.fov_upper > (360 * (math.pi/180)):
-            self.fov_upper = (self.rotation_delta + self.fov) - (360 * (math.pi/180))
+        if self.fov_upper > (360 * (math.pi / 180)):
+            self.fov_upper = (self.rotation_delta + self.fov) - (360 * (math.pi / 180))
 
         # Update center ray of the fov cone
         p1 = self.current_position
@@ -206,8 +206,8 @@ class Engine:
         self.camera_rays.clear()
         for i in range(len(self.cone_rays)):
             # Theta = angle from the fov center ray that intersects the camera plane at an even interval
-            theta = math.atan(((geometry.length(self.camera_plane)/len(self.cone_rays)) *
-                               (i - ((len(self.cone_rays)-1)/2)))/self.camera_plane_distance)
+            theta = math.atan(((geometry.length(self.camera_plane) / len(self.cone_rays)) *
+                               (i - ((len(self.cone_rays) - 1) / 2))) / self.camera_plane_distance)
             p1 = self.current_position
             x = p1[0] + (self.view_radius * math.cos(self.fov_center_ray.get_rd() + theta))
             y = p1[1] + (self.view_radius * math.sin(self.fov_center_ray.get_rd() + theta))
@@ -232,9 +232,9 @@ class Engine:
     def get_center_ray(self):
         return self.camera_rays[round(len(self.camera_rays) / 2)]
 
-    # Sets the wall we are currently looking at to be selected
-    # Used in figuring out what wall (or object) we are looking at
-    def set_facing_wall(self):
+    # Sets the object we are currently looking at to be selected
+    # TODO: Investigate circles having thousands of col_points
+    def set_facing_object(self):
         center_ray = self.get_center_ray()
         for k in self.walls:
             for wall in self.walls[k]:
@@ -243,31 +243,50 @@ class Engine:
                     wall.set_selected(True)
                 else:
                     wall.set_selected(False)
+        for k in self.circles:
+            for circle in self.circles[k]:
+                p2 = geometry.circle_line_segment_intersection(circle.get_p1(), circle.get_r(),
+                                                               center_ray.get_p1(), center_ray.get_p2())
+                if p2 is not None:
+                    circle.set_selected(True)
+                else:
+                    circle.set_selected(False)
 
     # Returns an instance of the wall currently being looked at
-    def get_facing_wall(self):
+    def get_facing_object(self):
         for k in self.walls:
             for wall in self.walls[k]:
                 if wall.get_selected():
                     return wall
+        for k in self.circles:
+            for circle in self.circles[k]:
+                if circle.get_selected():
+                    return circle
         return None
 
     # Deletes the wall we are currently looking at
-    def remove_facing_wall(self):
+    def remove_facing_object(self):
+        # TODO: Move to process_mouse_buttons()
+        self.set_facing_object()
         center_ray = self.get_center_ray()
         for k in self.walls:
             for wall in self.walls[k]:
                 if geometry.intersect(wall, center_ray) is not None:
                     self.walls[k].remove(wall)
+                    return
+        for k in self.circles:
+            for circle in self.circles[k]:
+                if geometry.circle_line_segment_intersection(circle.get_p1(), circle.get_r(),
+                                                             center_ray.get_p1(), center_ray.get_p2()) is not None:
+                    self.circles[k].remove(circle)
+                    return
 
     # Returns FrameState object, which contains all information about the
     def generate_frame(self):
-        self.set_facing_wall()
-
         rays = self.camera_rays.copy()
 
         # Padding between each slice
-        padding = self.width/len(rays)
+        padding = self.width / len(rays)
 
         # Initialize the frame
         frame = FrameState()
@@ -298,7 +317,8 @@ class Engine:
     def depth_shader(self, col, length, aug=None):
         if aug is None:
             aug = [0, 0, 0]
-        return [max(0, col[i] - ((col[i] - aug[i]) * math.log(length + 1) / math.log(self.lighting_distance + 1))) for i in range(len(col))]
+        return [max(0, col[i] - ((col[i] - aug[i]) * math.log(length + 1) / math.log(self.lighting_distance + 1))) for i
+                in range(len(col))]
 
     def process_mouse_movement(self, mouse_pos):
         self.rotate(self.mouse_sensitivity * (mouse_pos[0] - (self.width / 2)) / 360)
@@ -385,15 +405,17 @@ class Engine:
         for ray in self.camera_rays:
             wall = ray.get_wall()
             if wall is not None:
-                # print(wall)
                 if geometry.intersect(player_line, wall) is not None:
-                    print(wall)
                     return True
         return False
 
     # Changes the color of the currently selected wall
     def color_wall(self, color):
-        self.get_facing_wall().set_color(color)
+        # TODO: Move to process_mouse_buttons()
+        self.set_facing_object()
+        facing_wall = self.get_facing_object()
+        if facing_wall is not None:
+            facing_wall.set_color(color)
 
     # Checks for collisions between a set of rays and all walls/circles
     def check_collisions(self, rays):
