@@ -471,6 +471,14 @@ class Engine:
     def get_cur_position(self):
         return self.current_position
 
+    def get_world_object_count(self):
+        s = 0
+        for k in self.walls:
+            s += len(self.walls[k])
+        for k in self.circles:
+            s += len(self.circles[k])
+        return s
+
 
 # A segment represents a vertical slice of the final rendered image
 class Segment:

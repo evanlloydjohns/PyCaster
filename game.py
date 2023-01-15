@@ -56,7 +56,7 @@ def gen_walls():
 
 def gen_circles():
     cl = []
-    # cl.append(geometry.Circle((100, 100), 10, (255, 0, 0)))
+    cl.append(geometry.Circle((100, 100), 10, (255, 0, 0)))
     return cl
 
 
@@ -87,6 +87,8 @@ def draw_debug():
     cur_pos = engine.get_cur_position()
     text = font.render('x:{0} y:{1}'.format(round(cur_pos[0], 1), round(cur_pos[1], 1)), True, (0, 255, 0))
     screen.blit(text, (0, 20))
+    text = font.render('obj_count: {0}'.format(engine.get_world_object_count()), True, (0, 255, 0))
+    screen.blit(text, (0, 40))
 
 
 def process_inputs():
@@ -181,7 +183,7 @@ engine.add_circles("default", gen_circles())
 
 clock = pygame.time.Clock()
 
-# Set  up mouse
+# Set up mouse
 pygame.mouse.set_pos(width / 2, height / 2)
 if not is_detailed_debug:
     pygame.mouse.set_visible(False)

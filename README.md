@@ -16,7 +16,9 @@ That is not to say that this has never been done before (As it most certainly ha
 
 ## Screenshots
 
-![](pycaster_demo.png)
+![](pycaster_demo_01.png)
+![](pycaster_demo_02.png)
+![](pycaster_demo_03.png)
 
 TODOs:
 - [x] Add another world object type
