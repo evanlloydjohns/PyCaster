@@ -22,11 +22,11 @@ def intersect(l1, l2):
     return None
 
 
-# Thanks to this magnificent person: https://stackoverflow.com/questions/30844482/what-is-most-efficient-way-to-find-the-intersection-of-a-line-and-a-circle-in-py
+# Thanks to this magnificent person:
+# https://stackoverflow.com/questions/30844482/what-is-most-efficient-way-to-find-the-intersection-of-a-line-and-a-circle-in-py
 # Adapted to work with the current codebase
 def circle_line_segment_intersection(circle_center, circle_radius, pt1, pt2, full_line=False, tangent_tol=1e-9):
     """ Find the points at which a circle intersects a line-segment.  This can happen at 0, 1, or 2 points.
-
     :param circle_center: The (x, y) location of the circle center
     :param circle_radius: The radius of the circle
     :param pt1: The (x, y) location of the first point of the segment
@@ -34,7 +34,6 @@ def circle_line_segment_intersection(circle_center, circle_radius, pt1, pt2, ful
     :param full_line: True to find intersections along full line - not just in the segment.  False will just return intersections within the segment.
     :param tangent_tol: Numerical tolerance at which we decide the intersections are close enough to consider it a tangent
     :return Sequence[Tuple[float, float]]: A list of length 0, 1, or 2, where each element is a point at which the circle intercepts a line segment.
-
     Note: We follow: http://mathworld.wolfram.com/Circle-LineIntersection.html
     """
 
@@ -89,9 +88,9 @@ def line_point(l1, p):
     y2 = p2[1]
     px = p[0]
     py = p[1]
-    d1 = math.dist((px,py), (x1,y1))
-    d2 = math.dist((px,py), (x2,y2))
-    l = math.dist((x1,y1), (x2,y2))
+    d1 = math.dist((px, py), (x1, y1))
+    d2 = math.dist((px, py), (x2, y2))
+    l = math.dist((x1, y1), (x2, y2))
     buffer = .1
     if l-buffer <= d1+d2 <= l+buffer:
         return True
@@ -193,7 +192,7 @@ class Wall(Line):
     def set_color(self, color):
         self.color = color
 
-    # The width of the line, calculated by resolution_scale and display width
+    # When we are drawing to the display, we need the width of the line
     def get_width(self):
         return self.width
 
@@ -226,6 +225,7 @@ class Ray(Line):
         self.color = color
         self.wall_height = 0
         self.collide = False
+        self.wall = None
         super().__init__(p1, p2)
 
     def get_rd(self):
@@ -239,3 +239,9 @@ class Ray(Line):
 
     def set_color(self, color):
         self.color = color
+
+    def get_wall(self):
+        return self.wall
+
+    def set_wall(self, wall):
+        self.wall = wall

@@ -8,17 +8,17 @@ import geometry
 
 
 def rand_color():
-    return 100, 100, 100
-    # randint(0, 255), randint(0, 255), randint(0, 255)
+    return randint(0, 255), randint(0, 255), randint(0, 255)
 
 
-# TODO: better integrate the storage and management of circles
+# TODO: Add config for variable graphics modules (maybe class that handles controls depending on module)
 class Engine:
-    def __init__(self, width, height, wall_height):
+    def __init__(self, width, height, wall_height, current_position):
         # initialize the config parsers
         config = configparser.ConfigParser()
         config.read('settings.ini')
         en_config = config['ENGINE']
+        mo_config = config['MOVEMENT']
 
         # Get engine settings from settings.ini
         self.width = width
@@ -34,10 +34,10 @@ class Engine:
         self.ray_count = int((self.width / (self.fov / (360 * (math.pi / 180)))) / self.resolution_scale)
 
         # Degrees the camera turns
-        self.rotation_units = int(en_config['rotationUnits']) * (math.pi / 180)
+        self.rotation_units = int(mo_config['rotationUnits']) * (math.pi / 180)
 
         # Pixels the camera moves
-        self.movement_units = float(en_config['movementUnits'])
+        self.movement_units = float(mo_config['movementUnits'])
 
         # Total length of each ray cast
         self.view_radius = int(en_config['viewDistance'])
@@ -53,22 +53,26 @@ class Engine:
         self.wall_height = wall_height
 
         # Sprint scalar applied when holding shift
-        self.sprint_scalar = float(en_config['sprintScalar'])
+        self.sprint_scalar = float(mo_config['sprintScalar'])
+
+        # Looking Sensitivity
+        self.mouse_sensitivity = float(mo_config['mouseSensitivity'])
 
         # Current position of the camera
-        self.current_position = (0, 0)
+        self.current_position = current_position
 
         # Current height of the camera
         self.current_height = 0
 
         # Dictionary containing all lists of walls
+        # We store each grouping of walls in a dictionary so that we can differentiate what walls belong to
+        # what processes. The initial group of walls is called "Default". If we want to add more groups, we just
+        # create a new group name and add them to the dictionary. This gives us the ability to potentially store
+        # other types of objects in the future, and to be able to handle them differently depending on their key/tag
         self.walls = {}
 
-        # list of circles
-        self.circles = []
-
-        # Generates test circle
-        # self.gen_circles()
+        # Dictionary containing all lists of circles
+        self.circles = {}
 
         # List of all rays cast from the camera
         self.all_rays = []
@@ -103,6 +107,16 @@ class Engine:
         y = (p1[1] + (self.view_radius * math.sin(self.rotation_delta + (self.fov / 2))))
         self.fov_center_ray = geometry.Ray(p1, (x, y), (255, 255, 255), 0)
 
+        # Used for looking up the appropriate action for a key press
+        self.movements = {
+            pygame.K_a: self.move_left,
+            pygame.K_d: self.move_right,
+            pygame.K_s: self.move_backward,
+            pygame.K_w: self.move_forward,
+            pygame.K_q: self.rotate_left,
+            pygame.K_e: self.rotate_right
+        }
+
         # Update the fov cone
         self.update_cone()
 
@@ -112,11 +126,7 @@ class Engine:
     def get_pos(self):
         return self.current_position
 
-    # TODO: TEMP
-    def gen_circles(self):
-        c = geometry.Circle((0, 0), 5, (127, 127, 0))
-        self.circles.append(c)
-
+    # Initializes all the rays
     def gen_rays(self):
         rad_slice = (360.0 / self.ray_count) * (math.pi / 180)
         p1 = self.current_position
@@ -127,6 +137,7 @@ class Engine:
             ray = geometry.Ray(p1, p2, (255, 255, 255), (rad_slice * i))
             self.all_rays.append(ray)
 
+    # Updates all ray origin locations to current position
     def update_rays(self):
         rad_slice = (360.0 / self.ray_count) * (math.pi / 180)
         p1 = self.current_position
@@ -137,6 +148,7 @@ class Engine:
             self.all_rays[i].set_p1(p1)
             self.all_rays[i].set_p2(p2)
 
+    # Updates what rays are included in our FoV cone
     def update_cone(self):
         self.cone_rays.clear()
         self.fov_lower = self.rotation_delta
@@ -169,6 +181,7 @@ class Engine:
                 if rd < self.fov_lower and rd < self.fov_upper:
                     self.cone_rays.append(self.all_rays[i])
 
+    # Updates the plane to which we are rendering the rays from (can't render from a single point, need to use plane)
     def update_camera_plane(self):
         r1 = self.cone_rays[0]
         r2 = self.cone_rays[len(self.cone_rays) - 1]
@@ -184,6 +197,7 @@ class Engine:
 
         self.camera_plane = geometry.Line(p1, p2)
 
+    # Updates the angle each ray is cast at from the camera plane
     def update_camera(self):
         # In order to prevent a pseudo fish-eye effect, we need to account for the
         # angle which the rays are cast from. We do this by shifting the origin of
@@ -201,6 +215,7 @@ class Engine:
             self.camera_rays.append(geometry.Ray(p1, p2, self.cone_rays[i].get_color(),
                                                  self.fov_center_ray.get_rd() + theta))
 
+    # Calls all necessary updates for each cycle
     def update(self):
         # Updates all rays to current position
         self.update_rays()
@@ -213,15 +228,14 @@ class Engine:
         # Checks collisions with projected rays and walls
         self.check_collisions(self.camera_rays)
 
+    # Returns the ray at the center of the FoV cone
     def get_center_ray(self):
-        length = len(self.camera_rays)
-        mid = round(length / 2)
-        return self.camera_rays[mid]
+        return self.camera_rays[round(len(self.camera_rays) / 2)]
 
-    def get_facing_wall(self):
-        length = len(self.camera_rays)
-        mid = round(length / 2)
-        center_ray = self.camera_rays[mid]
+    # Sets the wall we are currently looking at to be selected
+    # Used in figuring out what wall (or object) we are looking at
+    def set_facing_wall(self):
+        center_ray = self.get_center_ray()
         for k in self.walls:
             for wall in self.walls[k]:
                 p2 = geometry.intersect(wall, center_ray)
@@ -230,137 +244,130 @@ class Engine:
                 else:
                     wall.set_selected(False)
 
+    # Returns an instance of the wall currently being looked at
+    def get_facing_wall(self):
+        for k in self.walls:
+            for wall in self.walls[k]:
+                if wall.get_selected():
+                    return wall
+        return None
+
+    # Deletes the wall we are currently looking at
     def remove_facing_wall(self):
-        length = len(self.camera_rays)
-        mid = round(length / 2)
-        center_ray = self.camera_rays[mid]
+        center_ray = self.get_center_ray()
         for k in self.walls:
             for wall in self.walls[k]:
                 if geometry.intersect(wall, center_ray) is not None:
                     self.walls[k].remove(wall)
 
-    # Creates frame of the current scene
-    def generate_snapshot(self):
-        # List of all finalized slices (line on screen)
-        self.get_facing_wall()
+    # Returns FrameState object, which contains all information about the
+    def generate_frame(self):
+        self.set_facing_wall()
 
-        display_buffer = []
         rays = self.camera_rays.copy()
 
         # Padding between each slice
         padding = self.width/len(rays)
 
-        for i in range(len(rays)):
-            # Top and bottom halves of the slice
-            hw1 = geometry.Wall((0, 0), (0, 0), (0, 0, 0))
-            hw2 = geometry.Wall((0, 0), (0, 0), (0, 0, 0))
+        # Initialize the frame
+        frame = FrameState()
+        frame.set_segment_width(int(padding + 1))
+        segment_count = 0
+        for ray in self.camera_rays:
+            ray_length = geometry.length(ray)
 
-            ray = rays[i]
-
-            length = geometry.length(rays[i])
-            # TODO: Should add depth to config
-            color = self.depth_shader(rays[i].get_color(), length)
-
-            # Weird math stuff I can't remember
+            # Help with the math: https://permadi.com/1996/05/ray-casting-tutorial-9/
             distance_to_projection_plane = self.camera_plane_distance
-            distance_to_slice = length * math.cos(math.fabs(rays[i].get_rd() - self.fov_center_ray.get_rd()))
-            # THIS LITERALLY TOOK LIKE 8 HOURS TO REALIZE I HAD THIS EQUATION WRONG
-            # https://permadi.com/1996/05/ray-casting-tutorial-9/
+            distance_to_segment = max(ray_length * math.cos(math.fabs(ray.get_rd() - self.fov_center_ray.get_rd())), 1)
+            projected_segment_height = (self.wall_height / distance_to_segment) * distance_to_projection_plane
 
-            # Prevent division by zero when close to slice
-            if distance_to_slice < 1:
-                distance_to_slice = 1
-            projected_slice_height = (self.wall_height / distance_to_slice) * distance_to_projection_plane
+            # Create the segment
+            seg_p1 = (segment_count * padding, (self.height / 2) - projected_segment_height / 2)
+            seg_p2 = (segment_count * padding, (self.height / 2) + projected_segment_height / 2)
+            seg_c = self.depth_shader(ray.get_color(), ray_length)
 
-            hw1.set_p1((i * padding, self.height / 2))
-            hw1.set_p2((i * padding, (self.height / 2) + projected_slice_height / 2))
-
-            hw2.set_p1((i * padding, self.height / 2))
-            hw2.set_p2((i * padding, (self.height / 2) - projected_slice_height / 2))
-
-            hw1.set_color(color)
-            hw2.set_color(color)
-
-            hw1.set_width(int(padding + 1))
-            hw2.set_width(int(padding + 1))
-
-            # Add finalized walls to
-            display_buffer.append((hw1, hw2))
-
-        return display_buffer
+            # Add segment to frame
+            frame.add_segment(Segment(seg_c, seg_p1, seg_p2))
+            segment_count += 1
+        return frame
 
     def debug(self):
         return self.camera_rays
 
-    def depth_shader(self, col, length):
-        d = 0
-        c = [col[0] - ((col[0] - d) * math.log(length + 1) / math.log(self.lighting_distance + 1)),
-             col[1] - ((col[1] - d) * math.log(length + 1) / math.log(self.lighting_distance + 1)),
-             col[2] - ((col[2] - d) * math.log(length + 1) / math.log(self.lighting_distance + 1))]
-        for i in range(len(col)):
-            if c[i] < 0:
-                c[i] = 0
-        return c
+    # Behold, the epitome of list comprehension
+    def depth_shader(self, col, length, aug=None):
+        if aug is None:
+            aug = [0, 0, 0]
+        return [max(0, col[i] - ((col[i] - aug[i]) * math.log(length + 1) / math.log(self.lighting_distance + 1))) for i in range(len(col))]
 
-    def move(self, keys):
+    def process_mouse_movement(self, mouse_pos):
+        self.rotate(self.mouse_sensitivity * (mouse_pos[0] - (self.width / 2)) / 360)
+
+    # TODO: Use the buffer swap principle for movement updates
+    # Handles all valid key presses
+    def process_keys(self, keys):
+        # Handle Sprint
         if keys[pygame.K_LSHIFT]:
             self.sprint_mod = self.sprint_scalar * self.movement_units
         else:
             self.sprint_mod = 0
-        if keys[pygame.K_UP]:
-            self.current_height += 0.03
-        if keys[pygame.K_DOWN]:
-            self.current_height -= 0.03
-        if keys[pygame.K_e]:
-            if self.rotation_delta < (360 * (math.pi/180)):
-                self.rotation_delta = self.rotation_delta + self.rotation_units
-            if self.rotation_delta > (359 * (math.pi/180)):
-                self.rotation_delta = 0
-        if keys[pygame.K_q]:
-            if self.rotation_delta < (1 * (math.pi/180)):
-                self.rotation_delta = (360 * (math.pi/180))
-            if self.rotation_delta > (0 * (math.pi/180)):
-                self.rotation_delta = self.rotation_delta - self.rotation_units
-        if keys[pygame.K_w]:
-            p1 = self.current_position
-            x = (p1[0] + ((self.movement_units + self.sprint_mod) * math.cos(self.rotation_delta + (self.fov / 2))))
-            y = (p1[1] + ((self.movement_units + self.sprint_mod) * math.sin(self.rotation_delta + (self.fov / 2))))
-            p2 = x, y
-            self.current_position = p2
-        if keys[pygame.K_a]:
-            p1 = self.current_position
-            x = (p1[0] - ((self.movement_units + self.sprint_mod) * math.cos(self.rotation_delta + (self.fov / 2) +
-                                                                             (90 * (math.pi / 180)))))
-            y = (p1[1] - ((self.movement_units + self.sprint_mod) * math.sin(self.rotation_delta + (self.fov / 2) +
-                                                                             (90 * (math.pi / 180)))))
-            p2 = x, y
-            self.current_position = p2
-        if keys[pygame.K_s]:
-            p1 = self.current_position
-            x = (p1[0] - ((self.movement_units + self.sprint_mod) * math.cos(self.rotation_delta + (self.fov / 2))))
-            y = (p1[1] - ((self.movement_units + self.sprint_mod) * math.sin(self.rotation_delta + (self.fov / 2))))
-            p2 = x, y
-            self.current_position = p2
-        if keys[pygame.K_d]:
-            p1 = self.current_position
-            x = (p1[0] + ((self.movement_units + self.sprint_mod) * math.cos(self.rotation_delta + (self.fov / 2) +
-                                                                             (90 * (math.pi / 180)))))
-            y = (p1[1] + ((self.movement_units + self.sprint_mod) * math.sin(self.rotation_delta + (self.fov / 2) +
-                                                                             (90 * (math.pi / 180)))))
-            p2 = x, y
-            self.current_position = p2
+        # Handle closing the game
         if keys[pygame.K_ESCAPE]:
             return False
+        # Handle all other keys
+        for key in self.movements:
+            if keys[key]:
+                self.movements[key]()
+        # This but list comprehension just for the heck of it
+        # [self.movements[k]() if keys[k] else None for k in self.movements]
         return True
 
-    def color_wall(self):
-        for k in self.walls:
-            for wall in self.walls[k]:
-                if wall.get_selected():
-                    wall.set_color((255, 0, 0))
+    # TODO: Investigate the use of a decorator for the player collision check
+    def move_left(self):
+        p1 = self.current_position
+        x = (p1[0] - ((self.movement_units + self.sprint_mod) *
+                      math.cos(self.rotation_delta + (self.fov / 2) + (90 * (math.pi / 180)))))
+        y = (p1[1] - ((self.movement_units + self.sprint_mod) *
+                      math.sin(self.rotation_delta + (self.fov / 2) + (90 * (math.pi / 180)))))
+        p2 = x, y
+        if not self.check_player_collision(p1, p2):
+            self.current_position = p2
 
+    def move_right(self):
+        p1 = self.current_position
+        x = (p1[0] + ((self.movement_units + self.sprint_mod) *
+                      math.cos(self.rotation_delta + (self.fov / 2) + (90 * (math.pi / 180)))))
+        y = (p1[1] + ((self.movement_units + self.sprint_mod) *
+                      math.sin(self.rotation_delta + (self.fov / 2) + (90 * (math.pi / 180)))))
+        p2 = x, y
+        if not self.check_player_collision(p1, p2):
+            self.current_position = p2
+
+    def move_forward(self):
+        p1 = self.current_position
+        x = (p1[0] + ((self.movement_units + self.sprint_mod) * math.cos(self.rotation_delta + (self.fov / 2))))
+        y = (p1[1] + ((self.movement_units + self.sprint_mod) * math.sin(self.rotation_delta + (self.fov / 2))))
+        p2 = x, y
+        if not self.check_player_collision(p1, p2):
+            self.current_position = p2
+
+    def move_backward(self):
+        p1 = self.current_position
+        x = (p1[0] - ((self.movement_units + self.sprint_mod) * math.cos(self.rotation_delta + (self.fov / 2))))
+        y = (p1[1] - ((self.movement_units + self.sprint_mod) * math.sin(self.rotation_delta + (self.fov / 2))))
+        p2 = x, y
+        if not self.check_player_collision(p1, p2):
+            self.current_position = p2
+
+    def rotate_left(self):
+        self.rotate(-self.rotation_units)
+
+    def rotate_right(self):
+        self.rotate(self.rotation_units)
+
+    # Rotates the camera a certain number of degrees
+    # TODO: Need to make mouse movement smooth
     def rotate(self, delta):
-        delta = delta / 360
         if delta > 0:
             if self.rotation_delta < (360 * (math.pi / 180)):
                 self.rotation_delta = self.rotation_delta + delta
@@ -372,22 +379,40 @@ class Engine:
             if self.rotation_delta > (0 * (math.pi / 180)):
                 self.rotation_delta = self.rotation_delta + delta
 
+    # TODO: Allow player to slide along wall (do some trig stuff I guess)
+    def check_player_collision(self, cur_pos, new_pos):
+        player_line = geometry.Line(cur_pos, new_pos)
+        for ray in self.camera_rays:
+            wall = ray.get_wall()
+            if wall is not None:
+                # print(wall)
+                if geometry.intersect(player_line, wall) is not None:
+                    print(wall)
+                    return True
+        return False
+
+    # Changes the color of the currently selected wall
+    def color_wall(self, color):
+        self.get_facing_wall().set_color(color)
+
+    # Checks for collisions between a set of rays and all walls/circles
     def check_collisions(self, rays):
         for ray in rays:
             for k in self.walls:
-                # TODO: work on adding col point stuff
                 for wall in self.walls[k]:
                     p2 = geometry.intersect(wall, ray)
                     if p2 is not None:
                         ray.set_color(wall.get_color())
                         ray.set_p2(p2)
+                        ray.set_wall(wall)
                         wall.add_col_point(p2)
-            for c in self.circles:
-                p2 = geometry.circle_line_segment_intersection(c.get_p1(), c.get_r(), ray.get_p1(), ray.get_p2())
-                if p2 is not None:
-                    ray.set_color(c.get_color())
-                    ray.set_p2(p2)
-                    c.add_col_point(p2)
+            for k in self.circles:
+                for c in self.circles[k]:
+                    p2 = geometry.circle_line_segment_intersection(c.get_p1(), c.get_r(), ray.get_p1(), ray.get_p2())
+                    if p2 is not None:
+                        ray.set_color(c.get_color())
+                        ray.set_p2(p2)
+                        c.add_col_point(p2)
 
     # Updates a list of walls in the dict. WILL REPLACE THE WALLS
     def change_walls(self, key, walls):
@@ -403,6 +428,18 @@ class Engine:
         else:
             self.walls[key] = walls
 
+    def change_circles(self, key, circles):
+        self.circles[key] = circles
+
+    def add_circles(self, key, circles):
+        if key in self.circles:
+            temp = self.circles[key]
+            for circle in circles:
+                temp.append(circle)
+            self.circles[key] = temp
+        else:
+            self.circles[key] = circles
+
     def remove_wall_group(self, key):
         self.walls.pop(key)
 
@@ -411,3 +448,56 @@ class Engine:
 
     def get_cur_position(self):
         return self.current_position
+
+
+# A segment represents a vertical slice of the final rendered image
+class Segment:
+    def __init__(self, color, p1, p2):
+        self.color = color
+        self.p1 = p1
+        self.p2 = p2
+
+    def get_color(self):
+        return self.color
+
+    def set_color(self, color):
+        self.color = color
+
+    def get_p1(self):
+        return self.p1
+
+    def set_p1(self, p1):
+        self.p1 = p1
+
+    def get_p2(self):
+        return self.p2
+
+    def set_p2(self, p2):
+        self.p2 = p2
+
+
+# Stores the state of each frame generated from the pycaster engine
+class FrameState:
+    def __init__(self):
+        # A list of segments which make up each individual vertical line to be displayed on the screen
+        self.segments = []
+        # The width of each segment
+        self.segment_width = 0
+
+    def get_segments(self):
+        return self.segments
+
+    def set_segments(self, segments):
+        self.segments = segments
+
+    def add_segment(self, segment):
+        self.segments.append(segment)
+
+    def clear_segments(self):
+        self.segments.clear()
+
+    def get_segment_width(self):
+        return self.segment_width
+
+    def set_segment_width(self, segment_width):
+        self.segment_width = segment_width
