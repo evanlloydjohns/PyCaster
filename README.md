@@ -14,6 +14,10 @@ Most ray casters you'll find online use a grid based system, where the world is 
 
 That is not to say that this has never been done before (As it most certainly has). Instead, this is just meant to be a fun challenge/project to occupy myself in my last few semesters of college.
 
+## Screenshots
+
+![](pycaster_demo.png)
+
 TODOs:
 - [x] Add another world object type
 - [x] Lay groundwork for texture mapping
@@ -42,8 +46,3 @@ Large Goals:
 - [ ] Switch to a more efficient graphics module
 - [ ] Create a world editor
 
-
-
-## Screenshots
-
-![](pycaster_demo.png)
