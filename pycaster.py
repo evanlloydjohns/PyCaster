@@ -352,8 +352,7 @@ class Engine:
         y = (p1[1] - ((self.movement_units + self.sprint_mod) *
                       math.sin(self.rotation_delta + (self.fov / 2) + (90 * (math.pi / 180)))))
         p2 = x, y
-        if not self.check_player_collision(p1, p2):
-            self.current_position = p2
+        self.current_position = self.check_player_collision(p1, p2)
 
     def move_right(self):
         p1 = self.current_position
@@ -362,24 +361,21 @@ class Engine:
         y = (p1[1] + ((self.movement_units + self.sprint_mod) *
                       math.sin(self.rotation_delta + (self.fov / 2) + (90 * (math.pi / 180)))))
         p2 = x, y
-        if not self.check_player_collision(p1, p2):
-            self.current_position = p2
+        self.current_position = self.check_player_collision(p1, p2)
 
     def move_forward(self):
         p1 = self.current_position
         x = (p1[0] + ((self.movement_units + self.sprint_mod) * math.cos(self.rotation_delta + (self.fov / 2))))
         y = (p1[1] + ((self.movement_units + self.sprint_mod) * math.sin(self.rotation_delta + (self.fov / 2))))
         p2 = x, y
-        if not self.check_player_collision(p1, p2):
-            self.current_position = p2
+        self.current_position = self.check_player_collision(p1, p2)
 
     def move_backward(self):
         p1 = self.current_position
         x = (p1[0] - ((self.movement_units + self.sprint_mod) * math.cos(self.rotation_delta + (self.fov / 2))))
         y = (p1[1] - ((self.movement_units + self.sprint_mod) * math.sin(self.rotation_delta + (self.fov / 2))))
         p2 = x, y
-        if not self.check_player_collision(p1, p2):
-            self.current_position = p2
+        self.current_position = self.check_player_collision(p1, p2)
 
     def rotate_left(self):
         self.rotate(-self.rotation_units)
@@ -401,15 +397,25 @@ class Engine:
             if self.rotation_delta > (0 * (math.pi / 180)):
                 self.rotation_delta = self.rotation_delta + delta
 
-    # TODO: Allow player to slide along wall (do some trig stuff I guess)
     def check_player_collision(self, cur_pos, new_pos):
         player_line = geometry.Line(cur_pos, new_pos)
         for ray in self.camera_rays:
             wall = ray.get_wall()
             if wall is not None:
-                if geometry.intersect(player_line, wall) is not None:
-                    return True
-        return False
+                p2 = geometry.intersect(player_line, wall)
+                if p2 is not None:
+                    # Awful sliding along a wall, just return new_pos if you want to turn this off
+                    d_cn = math.dist(cur_pos, new_pos)
+                    d_cp = math.dist(cur_pos, p2)
+                    x_diff = d_cn - d_cp
+                    y_diff = x_diff
+                    if cur_pos[0] < new_pos[0]:
+                        x_diff *= -1
+                    if cur_pos[1] < new_pos[1]:
+                        y_diff *= -1
+                    np = p2[0] + x_diff, p2[1] + y_diff
+                    return np
+        return new_pos
 
     # Changes the color of the currently selected wall
     def color_wall(self, color):

@@ -1,4 +1,7 @@
 import configparser
+import math
+from enum import Enum
+
 import pygame
 
 import geometry
@@ -19,6 +22,11 @@ colors = {
     "GRAY": (100, 100, 100),
     "LIGHT_GRAY": (150, 150, 150)
 }
+
+
+class GameState(Enum):
+    GAME = 0
+    MENU = 1
 
 
 def gen_walls():
@@ -64,6 +72,7 @@ def gen_circles():
 
 
 def draw_frame():
+
     screen = pygame.display.get_surface()
     frame = engine.generate_frame()
     screen.fill(colors["BLACK"])
@@ -89,7 +98,8 @@ def draw_debug():
                   'x:{0} y:{1}'.format(round(cur_pos[0], 1), round(cur_pos[1], 1)),
                   'total_obj_count: {0}'.format(engine.get_world_object_count()),
                   'camera_ray_count: {0}'.format(len(engine.camera_rays)),
-                  'total_ray_count: {0}'.format(engine.ray_count)]
+                  'total_ray_count: {0}'.format(engine.ray_count),
+                  'view_angle: {0}'.format(round(engine.rotation_delta * (180/math.pi), 1))]
     font = pygame.font.SysFont('consolas.ttf', 24)
     for i in range(len(font_label)):
         text = font.render(font_label[i], True, (0, 255, 0))
@@ -97,38 +107,49 @@ def draw_debug():
 
 
 def process_inputs():
-    global loop_i, mli_limit
-    # Send engine keyboard input
+    global state
     keys = pygame.key.get_pressed()
-    running = engine.process_keys(keys)
-    for event in pygame.event.get():
-        # Check for exit condition
-        if event.type == pygame.QUIT:
-            running = False
-        # TODO: Investigate migrating mouse button input to engine.process_mouse_buttons()
-        if event.type == pygame.MOUSEBUTTONDOWN:
-            # Color wall on left click
-            if event.button == 1:
-                engine.color_wall(pycaster.rand_color())
-            # Remove wall on right click
-            if event.button == 3:
-                engine.remove_facing_object()
+    if keys[pygame.K_m]:
+        state = GameState.MENU
+        pygame.mouse.set_visible(True)
+    running = True
+    if state is GameState.GAME:
+        global loop_i, mli_limit
+        # Send engine keyboard input
+        running = engine.process_keys(keys)
+        for event in pygame.event.get():
+            # Check for exit condition
+            if event.type == pygame.QUIT:
+                running = False
+            # TODO: Investigate migrating mouse button input to engine.process_mouse_buttons()
+            if event.type == pygame.MOUSEBUTTONDOWN:
+                # Color wall on left click
+                if event.button == 1:
+                    engine.color_wall(pycaster.rand_color())
+                # Remove wall on right click
+                if event.button == 3:
+                    engine.remove_facing_object()
 
-    # Send engine mouse input every 2 loops
-    if loop_i == mli_limit:
-        # This allows for a more precise rotation delta, and smoother movement
-        engine.process_mouse_movement(pygame.mouse.get_pos())
-        pygame.mouse.set_pos(width / 2, height / 2)
-        loop_i = 0
-    else:
-        loop_i += 1
+            # Send engine mouse input every 2 loops
+            if loop_i == mli_limit:
+                # This allows for a more precise rotation delta, and smoother movement
+                engine.process_mouse_movement(pygame.mouse.get_pos())
+                pygame.mouse.set_pos(width / 2, height / 2)
+                loop_i = 0
+            else:
+                loop_i += 1
+    if state is GameState.MENU:
+        pass
 
     return running
 
 
 def update():
-    # Update Engine
-    engine.update()
+    if state is GameState.GAME:
+        # Update Engine
+        engine.update()
+    if state is GameState.MENU:
+        pass
 
 
 def process_output():
@@ -137,6 +158,11 @@ def process_output():
     # Draw debug
     if is_debug:
         draw_debug()
+
+    if state is GameState.MENU:
+        s = pygame.Surface((width, height), pygame.SRCALPHA)
+        s.fill((0, 0, 0, 200))
+        pygame.display.get_surface().blit(s, (0, 0))
 
     # Draw buffered frame to display
     pygame.display.flip()
@@ -188,8 +214,11 @@ engine.add_circles("default", gen_circles())
 
 clock = pygame.time.Clock()
 
-# Set up mouse
+# Center mouse location
 pygame.mouse.set_pos(width / 2, height / 2)
+
+state = GameState.GAME
+
 if not is_detailed_debug:
     pygame.mouse.set_visible(False)
 
