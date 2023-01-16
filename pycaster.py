@@ -413,7 +413,7 @@ class Engine:
                         x_diff *= -1
                     if cur_pos[1] < new_pos[1]:
                         y_diff *= -1
-                    np = p2[0] + x_diff, p2[1] + y_diff
+                    np = cur_pos[0] + x_diff, cur_pos[1] + y_diff
                     return np
         return new_pos
 
