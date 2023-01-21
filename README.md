@@ -6,13 +6,16 @@ I've been interested in rendering engines and physics simulations for quite some
 
 I originally started this project in Java, but decided that It would be better to prototype the idea in python with pygame, and then move to Java (or hopefully C some day) once the general concepts and overall structure is down. 
 
-Now with introductions out of the way, lets get into the project!
-
 ## A Ray Caster?!...
 
-Most ray casters you'll find online use a grid based system, where the world is separated into cells which can be occupied by different states (a wall with a brick texture, a wall with a metal textue, a door, etc.). This is a really effective and efficient approach, but it does limit flexability in world geometry. That's where this ray caster differs; Instead of using a cell/grid based system, it uses a dynamic system. This allows for the rendering of nearly any two-dimensional shape.
+Most ray casters you'll find online use a grid based system, where the world is separated into cells which can be occupied by different states (a wall with a brick texture, a wall with a metal textue, a door, etc.). This is a really effective and efficient approach, but it does limit flexability in world geometry. 
 
-That is not to say that this has never been done before (As it most certainly has). Instead, this is just meant to be a fun challenge/project to occupy myself in my last few semesters of college.
+That's where this ray caster differs. I was originally captivated by the concept of raycasting after seeing demos similar to the one seen [here](https://www.youtube.com/watch?v=58l0SURwYpc).I really enjoyed the idea being able to place walls at any location and orientation. I could also see how the implementation of more complex geometry wouldn't be too difficult once the core structure was put in place. This led me to start work on a more traditional pseudo 3D ray caster with support for more complex world shapes and on the fly object creation.
+
+That is not to say that this has never been done before (as it has, many times). Instead, this is just meant to be a fun project to help me solidify concepts, data structures, and mathematical concepts I've learned over the past four years.
+
+This project is currently in it's infant state, as I work out bugs and add more features. My goal is to have two executables, a world editor, and a ray caster. The world editor will have tools that allow you to create levels, and the ray caster will be the engine that can render those levels. Once the ray caster gets to a good state, I'll start work on the world editor.
+
 
 ## Screenshots
 
@@ -29,7 +32,7 @@ TODOs:
 - [ ] Add a GUI module for implementation of a start menu and pause menu
 - [ ] Investigate migrating mouse button input to engine.process_mouse_buttons()
 - [ ] Add config for variable graphics modules (maybe class that handles controls depending on module)
-- [ ] Use the buffer swap principle for movement updates
+- [ ] Investigate using the buffer swap principle for movement updates
 - [ ] Investigate the use of a decorator for the player collision check
 - [ ] Need to make mouse movement smooth
 - [ ] Allow player to slide along wall (do some trig stuff I guess)
@@ -39,7 +42,7 @@ Large Goals:
 - [x] Add a legitimate ReadMe!
 - [x] Add better documentation (Seriously, document your code)
 - [ ] Optimize calculations by dynamically selecting walls/rays
-- [ ] Add textures
+- [ ] Add dynamic texture mapping to world objects
 - [ ] Add menu system
 - [ ] Add loading and saving of world states
 - [ ] Add entities
