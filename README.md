@@ -10,7 +10,7 @@ I originally started this project in Java, but decided that It would be better t
 
 Most ray casters you'll find online use a grid based system, where the world is separated into cells which can be occupied by different states (a wall with a brick texture, a wall with a metal textue, a door, etc.). This is a really effective and efficient approach, but it does limit flexability in world geometry. 
 
-That's where this ray caster differs. I was originally captivated by the concept of raycasting after seeing demos similar to the one seen [here](https://www.youtube.com/watch?v=58l0SURwYpc).I really enjoyed the idea being able to place walls at any location and orientation. I could also see how the implementation of more complex geometry wouldn't be too difficult once the core structure was put in place. This led me to start work on a more traditional pseudo 3D ray caster with support for more complex world shapes and on the fly object creation.
+That's where this ray caster differs. I was originally captivated by the concept of raycasting after seeing demos similar to the one seen [here](https://www.youtube.com/watch?v=58l0SURwYpc). I really enjoyed the idea being able to place walls at any location and orientation. I could also see how the implementation of more complex geometry wouldn't be too difficult once the core structure was put in place. This led me to start work on a more traditional pseudo 3D ray caster with support for more complex world shapes and on the fly object creation.
 
 That is not to say that this has never been done before (as it has, many times). Instead, this is just meant to be a fun project to help me solidify concepts, data structures, and mathematical concepts I've learned over the past four years.
 
