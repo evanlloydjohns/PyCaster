@@ -1,6 +1,11 @@
 import math
 
 
+# math.dist() is not in python 3.6
+def dist(p, q):
+    return math.sqrt((q[0]-p[0])**2 + (q[1]-p[1])**2)
+
+
 def intersect(l1, l2):
     p0 = l1.get_p1()
     p1 = l1.get_p2()

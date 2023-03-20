@@ -42,23 +42,23 @@ def gen_walls():
         geometry.Wall((s/2, -s/2), (-s/2, -s/2), colors["WHITE"])
     ]
 
-    for i in range(d):
-        c = []
-        for j in range(d):
-            i_x = (i * x_d) - s/2
-            j_y = (j * y_d) - s/2
-            c.append((i_x, j_y))
-        cord_loc.append(c)
-    for i in range(d):
-        for j in range(d):
-            if j % 2 == 0:
-                if j + 1 is not d:
-                    wl.append(geometry.Wall(cord_loc[i][j], cord_loc[i][j + 1], colors["WHITE"]))
-                else:
-                    pass
-            if i % 2 == 0:
-                if i + 1 is not d:
-                    wl.append(geometry.Wall(cord_loc[i][j], cord_loc[i + 1][j], colors["WHITE"]))
+    # for i in range(d):
+    #     c = []
+    #     for j in range(d):
+    #         i_x = (i * x_d) - s/2
+    #         j_y = (j * y_d) - s/2
+    #         c.append((i_x, j_y))
+    #     cord_loc.append(c)
+    # for i in range(d):
+    #     for j in range(d):
+    #         if j % 2 == 0:
+    #             if j + 1 is not d:
+    #                 wl.append(geometry.Wall(cord_loc[i][j], cord_loc[i][j + 1], colors["WHITE"]))
+    #             else:
+    #                 pass
+    #         if i % 2 == 0:
+    #             if i + 1 is not d:
+    #                 wl.append(geometry.Wall(cord_loc[i][j], cord_loc[i + 1][j], colors["WHITE"]))
     return wl
 
 
@@ -144,10 +144,10 @@ def process_inputs():
     return running
 
 
-def update():
+def update(dt):
     if state is GameState.GAME:
         # Update Engine
-        engine.update()
+        engine.update(dt)
     if state is GameState.MENU:
         pass
 
@@ -169,13 +169,14 @@ def process_output():
 
 
 def run():
+    dt = 0
     running = True
     while running:
-        running = process_inputs()
-        update()
-        process_output()
         # Tick the clock
-        clock.tick(120)
+        dt = clock.tick(120) / 1000
+        running = process_inputs()
+        update(dt)
+        process_output()
     pygame.quit()
 
 

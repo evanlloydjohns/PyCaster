@@ -1,5 +1,7 @@
 from random import randint
 
+from Box2D import *
+
 import configparser
 import math
 import pygame
@@ -126,6 +128,24 @@ class Engine:
         # Color of distance fog
         self.fog_color = (63, 63, 63)
 
+        # Setup Box2D
+
+        self.gravity = b2Vec2(0.0, 0.0)
+        self.world = b2World(gravity=self.gravity)
+
+        self.dynamic_body = DynamicBox(
+            self.world.CreateDynamicBody(
+                position=(0.0, 3.0),
+                fixtures=b2FixtureDef(
+                    shape=b2PolygonShape(box=(0.5, 0.5)),
+                    density=3.0,
+                    friction=0.0
+                ),
+                fixedRotation=True
+            )
+        )
+
+
     def get_pos(self):
         return self.current_position
 
@@ -219,7 +239,11 @@ class Engine:
                                                  self.fov_center_ray.get_rd() + theta))
 
     # Calls all necessary updates for each cycle
-    def update(self):
+    def update(self, dt):
+        # Update physics
+        self.world.Step(dt, 6, 2)
+        # Get dynamic box location and add to walls dict
+        self.change_walls("dynamicBox", self.dynamic_body.get_walls())
         # Updates all rays to current position
         self.update_rays()
         # Updates the set of rays withing to fov cone
@@ -336,6 +360,18 @@ class Engine:
         # Handle closing the game
         if keys[pygame.K_ESCAPE]:
             return False
+        # Handle moving dynamicbox
+        if keys[pygame.K_LEFT]:
+            self.dynamic_body.body.ApplyLinearImpulse(b2Vec2(-1.0, 0.0), self.dynamic_body.body.position, True)
+
+        if keys[pygame.K_RIGHT]:
+            self.dynamic_body.body.ApplyLinearImpulse(b2Vec2(1.0, 0.0), self.dynamic_body.body.position, True)
+
+        if keys[pygame.K_UP]:
+            self.dynamic_body.body.ApplyLinearImpulse(b2Vec2(0.0, 1.0), self.dynamic_body.body.position, True)
+
+        if keys[pygame.K_DOWN]:
+            self.dynamic_body.body.ApplyLinearImpulse(b2Vec2(0.0, -1.0), self.dynamic_body.body.position, True)
         # Handle all other keys
         for key in self.movements:
             if keys[key]:
@@ -405,8 +441,8 @@ class Engine:
                 p2 = geometry.intersect(player_line, wall)
                 if p2 is not None:
                     # Awful sliding along a wall, just return new_pos if you want to turn this off
-                    d_cn = math.dist(cur_pos, new_pos)
-                    d_cp = math.dist(cur_pos, p2)
+                    d_cn = geometry.dist(cur_pos, new_pos)
+                    d_cp = geometry.dist(cur_pos, p2)
                     x_diff = d_cn - d_cp
                     y_diff = x_diff
                     if cur_pos[0] < new_pos[0]:
@@ -447,6 +483,7 @@ class Engine:
     # Updates a list of walls in the dict. WILL REPLACE THE WALLS
     def change_walls(self, key, walls):
         self.walls[key] = walls
+        # print(key, self.walls[key])
 
     # Adds a list of walls to the dict. DOES NOT REPLACE
     def add_walls(self, key, walls):
@@ -539,3 +576,55 @@ class FrameState:
 
     def set_segment_width(self, segment_width):
         self.segment_width = segment_width
+
+
+class DynamicBox:
+    def __init__(self, body):
+        self.body = body
+        self.body_width = 0
+        self.body_height = 0
+        self.gen_dims()
+
+    def gen_dims(self):
+        for fixture in self.body.fixtures:
+            transform = self.body.transform
+            t_pos = (transform.position.x, transform.position.y)
+            r_verts = self.rotate_point_list((0, 0), fixture.shape.vertices, transform.angle)
+            w_verts = [(v[0] + t_pos[0], v[1] + t_pos[1]) for v in r_verts]
+            s_verts = [self.convert_b2p(v) for v in w_verts]
+            self.body_width = geometry.dist(s_verts[0], s_verts[1])
+            self.body_height = geometry.dist(s_verts[0], s_verts[3])
+    
+    def get_walls(self):
+        transform = self.body.transform
+        for fixture in self.body.fixtures:
+            r_verts = self.rotate_point_list((0, 0), fixture.shape.vertices, transform.angle)
+            w_verts = [(v[0] + transform.position.x, v[1] + transform.position.y) for v in r_verts]
+            s_verts = [self.convert_b2p(v) for v in w_verts]
+            walls = []
+            for i in range(len(s_verts)):
+                wall = geometry.Wall(s_verts[i], s_verts[(i+1) % len(s_verts)], (255, 0, 0))
+                walls.append(wall)
+            return walls
+
+
+    def convert_b2p(self, pos):
+        return pos[0] * 10, pos[1] * 10
+
+    def rotate_point_list(self, origin, points, angle):
+        s = math.sin(angle)
+        c = math.cos(angle)
+        r_points = []
+        for p in points:
+            px = p[0]
+            py = p[1]
+            px -= origin[0]
+            py -= origin[1]
+            rx = px * c - py * s
+            ry = px * s + py * c
+            nx = rx + origin[0]
+            ny = ry + origin[1]
+            r_points.append((nx, ny))
+        return r_points
+
+
