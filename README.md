@@ -29,6 +29,7 @@ TODOs:
 - [x] De-link world coordinate system from window dimensions
 - [x] Formalize a wolrd objects data structure for future additions
 - [x] Reformat engine and game initialization to better support OOP principles
+- [x] Add broad-phase collision selection for walls
 - [ ] Add a GUI module for implementation of a start menu and pause menu
 - [ ] Investigate migrating mouse button input to engine.process_mouse_buttons()
 - [ ] Add config for variable graphics modules (maybe class that handles controls depending on module)

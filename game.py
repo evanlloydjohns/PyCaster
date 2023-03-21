@@ -7,6 +7,9 @@ import pygame
 import geometry
 import pycaster
 
+# TODO: Saving/loading does not support circles
+
+# TODO: We could use box2d to introduce physics. pushing and pulling walls around.
 
 # TODO: Investigate adding a wall culling script for walls that are a subset of other walls
 # TODO: Add a GUI module for implementation of a start menu and pause menu
@@ -30,17 +33,25 @@ class GameState(Enum):
 
 
 def gen_walls():
-    s = 100
-    d = 10
-    cord_loc = []
-    x_d = s / d
-    y_d = s / d
-    wl = [
-        geometry.Wall((-s/2, -s/2), (-s/2, s/2), colors["WHITE"]),
-        geometry.Wall((-s/2, s/2), (s/2, s/2), colors["WHITE"]),
-        geometry.Wall((s/2, s/2), (s/2, -s/2), colors["WHITE"]),
-        geometry.Wall((s/2, -s/2), (-s/2, -s/2), colors["WHITE"])
-    ]
+    with open("board.txt", 'r') as file:
+        walls = []
+        for line in file:
+            line_split = line.split(':')
+            key = line_split[0]
+            vals = line_split[1].split('; ')
+            walls.append(geometry.Wall(eval(vals[0]), eval(vals[1]), eval(vals[2])))
+        return walls
+    # s = 100
+    # d = 10
+    # cord_loc = []
+    # x_d = s / d
+    # y_d = s / d
+    # wl = [
+    #     # geometry.Wall((-s/2, -s/2), (-s/2, s/2), colors["WHITE"]),
+    #     # geometry.Wall((-s/2, s/2), (s/2, s/2), colors["WHITE"]),
+    #     # geometry.Wall((s/2, s/2), (s/2, -s/2), colors["WHITE"]),
+    #     # geometry.Wall((s/2, -s/2), (-s/2, -s/2), colors["WHITE"])
+    # ]
 
     # for i in range(d):
     #     c = []
@@ -59,7 +70,87 @@ def gen_walls():
     #         if i % 2 == 0:
     #             if i + 1 is not d:
     #                 wl.append(geometry.Wall(cord_loc[i][j], cord_loc[i + 1][j], colors["WHITE"]))
-    return wl
+    # return wl
+    # maze = [[0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+    #         [0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0],
+    #         [0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0],
+    #         [0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0],
+    #         [0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0],
+    #         [0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0],
+    #         [0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0],
+    #         [0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0],
+    #         [0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0],
+    #         [0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0],
+    #         [0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0],
+    #         [0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0],
+    #         [0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0],
+    #         [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]]
+    # return translate_map_coords(maze)
+
+
+def translate_map_coords(map):
+    coords = []
+    for y in range(len(map)):
+        for x in range(len(map[0])):
+            if map[y][x] == 0:
+                coords.append([(x*10, y*10), (x*10 + 10, y*10), (x*10 + 10, y*10 + 10), (x*10, y*10 + 10)])
+    walls = []
+    for rect in coords:
+        walls.append(geometry.Wall(rect[0], rect[1], (255, 255, 255)))
+        walls.append(geometry.Wall(rect[1], rect[2], (255, 255, 255)))
+        walls.append(geometry.Wall(rect[2], rect[3], (255, 255, 255)))
+        walls.append(geometry.Wall(rect[3], rect[0], (255, 255, 255)))
+    return walls
+
+
+# combines walls that can be made of a larger wall
+def consolidate_walls(key):
+    # Maximum distance for connected walls
+    # TODO: figure out how to cut out walls that are within a collidable distance
+    walls = engine.get_world_state().get_all_walls()[key]
+    for i in range(len(walls)):
+        w1 = walls[i]
+        for j in range(i+1, len(walls)):
+            w2 = walls[j]
+
+    # if w1p2 == w2p1:
+    #   t_wall = w1p1, w2p2
+    #   m_p = w1p2
+    #   if line_point_intersect(m_p, t_wall) if not None:
+    #       wall = w1p1, w2p2
+    con_walls = []
+    walls = engine.get_world_state().get_all_walls()[key]
+    for i in range(len(walls)):
+        w1p1 = walls[i].get_p1()
+        w1p2 = walls[i].get_p2()
+        for j in range(i + 1, len(walls)):
+            w2p1 = walls[j].get_p1()
+            w2p2 = walls[i].get_p2()
+            if w1p2 == w2p1:
+                t_wall = geometry.Wall(w1p1, w2p2, (255, 255, 255))
+                m_p = w1p2
+                if geometry.line_point(t_wall, m_p):
+                    con_walls.append(t_wall)
+    for wall in con_walls:
+        print("p1:{0} p2:{1}".format(wall.get_p1(), wall.get_p2()))
+    engine.get_world_state().remove_wall_group(key)
+    engine.get_world_state().add_walls(key, walls)
+
+
+# I know this is horrible programming
+def cull_redundant_walls(key):
+    walls = engine.get_world_state().get_all_walls()
+    redundant_walls = []
+    for i in range(len(walls[key])):
+        w1 = walls[key][i]
+        for j in range(i + 1, len(walls[key])):
+            w2 = walls[key][j]
+            if w1.get_p1() == w2.get_p1() and w1.get_p2() == w2.get_p2():
+                redundant_walls.append((key, w1))
+            if w1.get_p1() == w2.get_p2() and w1.get_p2() == w2.get_p1():
+                redundant_walls.append((key, w1))
+    for r_wall in redundant_walls:
+        walls[r_wall[0]].remove(r_wall[1])
 
 
 def gen_circles():
@@ -71,10 +162,41 @@ def gen_circles():
     return cl
 
 
+def load_state(filename):
+    with open(filename, 'r') as file:
+        engine.get_world_state().remove_all_walls()
+        engine.get_world_state().remove_all_circles()
+        walls = {}
+        circles = {}
+        for line in file:
+            line_split = line.split(':')
+            key = line_split[0]
+            vals = line_split[1].split('; ')
+            if key in walls:
+                walls[key].append(geometry.Wall(eval(vals[0]), eval(vals[1]), eval(vals[2])))
+            else:
+                walls[key] = [geometry.Wall(eval(vals[0]), eval(vals[1]), eval(vals[2]))]
+        engine.get_world_state().set_walls(walls)
+
+
+# TODO: saving multiple times because key is being pressed
+def save_state(filename):
+    print("saving!")
+    with open(filename, 'w') as file:
+        data = ""
+        walls = engine.get_world_state().get_walls()
+        for k in walls:
+            for w in walls[k]:
+                data += "{0}: {1}; {2}; {3}\n".format(k, w.get_p1(), w.get_p2(), w.get_color())
+        # Remove trailing newline
+        data = data[0:len(data) - 1]
+        file.write(data)
+
+
 def draw_frame():
 
     screen = pygame.display.get_surface()
-    frame = engine.generate_frame()
+    frame = engine.process_outputs()
     screen.fill(colors["BLACK"])
     pygame.draw.rect(screen, colors["SKY"], ((0, 0), (width, height / 2)))
     pygame.draw.rect(screen, colors["GROUND"], ((0, height / 2), (width, height)))
@@ -88,18 +210,30 @@ def draw_frame():
 
 def draw_debug():
     screen = pygame.display.get_surface()
-    if is_detailed_debug:
-        display_buffer = engine.debug()
-        for ray in display_buffer:
-            pygame.draw.line(screen, ray.get_color(), ray.get_p1(), ray.get_p2())
-            pygame.draw.circle(screen, (0, 0, 255), ray.get_p2(), 5, 0)
     cur_pos = engine.get_cur_position()
     font_label = ['fps:{0}'.format(round(clock.get_fps(), 1)),
-                  'x:{0} y:{1}'.format(round(cur_pos[0], 1), round(cur_pos[1], 1)),
-                  'total_obj_count: {0}'.format(engine.get_world_object_count()),
-                  'camera_ray_count: {0}'.format(len(engine.camera_rays)),
-                  'total_ray_count: {0}'.format(engine.ray_count),
-                  'view_angle: {0}'.format(round(engine.rotation_delta * (180/math.pi), 1))]
+                  'x:{0} y:{1}'.format(round(cur_pos[0], 1), round(cur_pos[1], 1))]
+    if is_detailed_debug:
+        debug_rays = engine.debug()
+        for ray in debug_rays:
+            p1 = ray.get_p1()[0] + (width / 2), ray.get_p1()[1] + (height / 2)
+            p2 = ray.get_p2()[0] + (width / 2), ray.get_p2()[1] + (height / 2)
+            pygame.draw.line(screen, ray.get_color(), p1, p2)
+            pygame.draw.circle(screen, (0, 0, 255), p2, 5, 0)
+        walls = engine.get_world_state().get_all_walls()
+        for k in walls:
+            for wall in walls[k]:
+                p1 = wall.get_p1()[0] + (width / 2), wall.get_p1()[1] + (height / 2)
+                p2 = wall.get_p2()[0] + (width / 2), wall.get_p2()[1] + (height / 2)
+                pygame.draw.line(screen, wall.get_color(), p1, p2)
+        # Display debug stats
+        engine_debug = engine.get_debug_stats()
+        for k in engine_debug:
+            font_label.append('')
+            font_label.append(f'[{k}]')
+            for i in engine_debug[k]:
+                font_label.append(f'{i}: {engine_debug[k][i]}')
+
     font = pygame.font.SysFont('consolas.ttf', 24)
     for i in range(len(font_label)):
         text = font.render(font_label[i], True, (0, 255, 0))
@@ -116,8 +250,14 @@ def process_inputs():
     if state is GameState.GAME:
         global loop_i, mli_limit
         # Send engine keyboard input
-        running = engine.process_keys(keys)
+        running = engine.process_keys()
         for event in pygame.event.get():
+            if event.type == pygame.KEYDOWN:
+                # Handle saving and loading
+                if event.key == pygame.K_o:
+                    save_state("world.txt")
+                if event.key == pygame.K_p:
+                    load_state("board.txt")
             # Check for exit condition
             if event.type == pygame.QUIT:
                 running = False
@@ -210,8 +350,12 @@ pygame.display.set_caption("RayCaster")
 pygame.display.set_mode((width, height), is_full_screen)
 
 engine = pycaster.Engine(width, height, wall_height, (7, 7))
-engine.add_walls("default", gen_walls())
-engine.add_circles("default", gen_circles())
+world_objects = pycaster.WorldState()
+world_objects.add_walls("default", gen_walls())
+world_objects.add_circles("default", gen_circles())
+engine.set_world_objects(world_objects)
+cull_redundant_walls("default")
+consolidate_walls("default")
 
 clock = pygame.time.Clock()
 

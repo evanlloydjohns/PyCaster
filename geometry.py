@@ -94,9 +94,9 @@ def line_point(l1, p):
     y2 = p2[1]
     px = p[0]
     py = p[1]
-    d1 = math.dist((px, py), (x1, y1))
-    d2 = math.dist((px, py), (x2, y2))
-    l = math.dist((x1, y1), (x2, y2))
+    d1 = dist((px, py), (x1, y1))
+    d2 = dist((px, py), (x2, y2))
+    l = dist((x1, y1), (x2, y2))
     buffer = .1
     if l-buffer <= d1+d2 <= l+buffer:
         return True
