@@ -16,7 +16,7 @@ class Timer:
         r_time = self.current_time - self.last_time
         self.last_time = time.time()
         self.time_record.append(r_time)
-        return round(r_time * 1000, 2)
+        return round(r_time * 1000, 4)
 
     def get_total_time(self):
         return round((time.time() - self.start_time) * 1000, 3)

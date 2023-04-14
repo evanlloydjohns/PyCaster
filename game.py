@@ -1,11 +1,18 @@
 import configparser
 import math
-from enum import Enum
 
 import pygame
 
 import geometry
+import menus
 import pycaster
+from instances import GameState
+
+# Clean up game.py. We could have all menus and an 'engine controller' inherit from a class that has a
+# process_inputs(), update(), and process_outputs() method. This way, we could set the state of the game,
+# and just call that state's three methods.
+
+# TODO: Use Mazetric to run through a maze
 
 # TODO: Saving/loading does not support circles
 
@@ -27,9 +34,17 @@ colors = {
 }
 
 
-class GameState(Enum):
-    GAME = 0
-    MENU = 1
+def set_state(new_state):
+    global current_state
+    current_state = new_state
+    pygame.mouse.set_pos(width / 2, height / 2)
+    if not is_detailed_debug:
+        pygame.mouse.set_visible(False)
+
+
+def set_running(new_running):
+    global running
+    running = new_running
 
 
 def gen_walls():
@@ -131,8 +146,8 @@ def consolidate_walls(key):
                 m_p = w1p2
                 if geometry.line_point(t_wall, m_p):
                     con_walls.append(t_wall)
-    for wall in con_walls:
-        print("p1:{0} p2:{1}".format(wall.get_p1(), wall.get_p2()))
+    # for wall in con_walls:
+    #     print("p1:{0} p2:{1}".format(wall.get_p1(), wall.get_p2()))
     engine.get_world_state().remove_wall_group(key)
     engine.get_world_state().add_walls(key, walls)
 
@@ -179,18 +194,18 @@ def load_state(filename):
         engine.get_world_state().set_walls(walls)
 
 
-# TODO: saving multiple times because key is being pressed
 def save_state(filename):
     print("saving!")
-    with open(filename, 'w') as file:
-        data = ""
-        walls = engine.get_world_state().get_walls()
-        for k in walls:
-            for w in walls[k]:
-                data += "{0}: {1}; {2}; {3}\n".format(k, w.get_p1(), w.get_p2(), w.get_color())
-        # Remove trailing newline
-        data = data[0:len(data) - 1]
-        file.write(data)
+    engine.get_world_state().save_state(filename)
+    # with open(filename, 'w') as file:
+    #     data = ""
+    #     walls = engine.get_world_state().get_walls()
+    #     for k in walls:
+    #         for w in walls[k]:
+    #             data += "{0}: {1}; {2}; {3}\n".format(k, w.get_p1(), w.get_p2(), w.get_color())
+    #     # Remove trailing newline
+    #     data = data[0:len(data) - 1]
+    #     file.write(data)
 
 
 def draw_frame():
@@ -204,8 +219,6 @@ def draw_frame():
     segments = frame.get_segments()
     for segment in segments:
         pygame.draw.line(screen, segment.get_color(), segment.get_p1(), segment.get_p2(), segment_width)
-    pygame.draw.line(screen, (255, 255, 255), (width / 2, height / 2 + 10), (width / 2, height / 2 - 10), 1)
-    pygame.draw.line(screen, (255, 255, 255), (width / 2 + 10, height / 2), (width / 2 - 10, height / 2), 1)
 
 
 def draw_debug():
@@ -241,21 +254,23 @@ def draw_debug():
 
 
 def process_inputs():
-    global state
-    keys = pygame.key.get_pressed()
-    if keys[pygame.K_m]:
-        state = GameState.MENU
-        pygame.mouse.set_visible(True)
-    running = True
-    if state is GameState.GAME:
+    global current_state
+    global running
+    events = pygame.event.get()
+
+    if current_state is GameState.GAME:
         global loop_i, mli_limit
         # Send engine keyboard input
         running = engine.process_keys()
-        for event in pygame.event.get():
+        game_hud.process_inputs(events)
+        for event in events:
             if event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_ESCAPE:
+                    current_state = GameState.PAUSE_MENU
+                    pygame.mouse.set_visible(True)
                 # Handle saving and loading
                 if event.key == pygame.K_o:
-                    save_state("world.txt")
+                    save_state("board.txt")
                 if event.key == pygame.K_p:
                     load_state("board.txt")
             # Check for exit condition
@@ -278,39 +293,51 @@ def process_inputs():
                 loop_i = 0
             else:
                 loop_i += 1
-    if state is GameState.MENU:
-        pass
+
+    if current_state is GameState.PAUSE_MENU:
+        pause_menu.process_inputs(events)
+
+    if current_state is GameState.START_MENU:
+        start_menu.process_inputs(events)
 
     return running
 
 
 def update(dt):
-    if state is GameState.GAME:
+    if current_state is GameState.GAME:
         # Update Engine
         engine.update(dt)
-    if state is GameState.MENU:
-        pass
+        game_hud.update()
+
+    if current_state is GameState.PAUSE_MENU:
+        pause_menu.update()
+
+    if current_state is GameState.START_MENU:
+        engine.update(dt)
+        start_menu.update()
 
 
 def process_output():
-    draw_frame()
+    if current_state is GameState.GAME:
+        draw_frame()
+        game_hud.process_outputs()
+        if is_debug:
+            draw_debug()
 
-    # Draw debug
-    if is_debug:
-        draw_debug()
+    if current_state is GameState.PAUSE_MENU:
+        draw_frame()
+        pause_menu.process_outputs()
 
-    if state is GameState.MENU:
-        s = pygame.Surface((width, height), pygame.SRCALPHA)
-        s.fill((0, 0, 0, 200))
-        pygame.display.get_surface().blit(s, (0, 0))
+    if current_state is GameState.START_MENU:
+        draw_frame()
+        start_menu.process_outputs()
 
     # Draw buffered frame to display
     pygame.display.flip()
 
 
 def run():
-    dt = 0
-    running = True
+    global running
     while running:
         # Tick the clock
         dt = clock.tick(120) / 1000
@@ -362,9 +389,13 @@ clock = pygame.time.Clock()
 # Center mouse location
 pygame.mouse.set_pos(width / 2, height / 2)
 
-state = GameState.GAME
+# Initialize menus
+pause_menu = menus.PauseMenuInterface(width, height, set_state, set_running, load_state)
+start_menu = menus.StartMenuInterface(width, height, set_state, set_running)
+game_hud = menus.GameHUDInterface(width, height, set_state, set_running)
 
-if not is_detailed_debug:
-    pygame.mouse.set_visible(False)
+current_state = GameState.START_MENU
+
+running = True
 
 run()

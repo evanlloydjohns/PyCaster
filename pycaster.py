@@ -16,6 +16,8 @@ def rand_color():
 
 # TODO: Should my positions be stored as vectors instead?
 # TODO: Add saving and loading of the world state
+# TODO: Check line magnitude and if large then don't calculate collisions on that ray for broad phase
+# TODO: Checkout pygame gui instead of tkinter
 class Engine:
     def __init__(self, width, height, wall_height, current_position):
         # initialize the config parsers
@@ -47,23 +49,25 @@ class Engine:
             self.world.CreateDynamicBody(
                 position=(0.0, 3.0),
                 fixtures=b2FixtureDef(
-                    shape=b2PolygonShape(box=(0.5, 0.5)),
+                    shape=b2PolygonShape(box=(0.3, 0.3)),
+                    density=3.0,
+                    friction=0.0
+                ),
+                fixedRotation=False
+            )
+        )
+
+        camera_body = DynamicBox(
+            self.world.CreateDynamicBody(
+                position=current_position,
+                fixtures=b2FixtureDef(
+                    shape=b2PolygonShape(box=(0.2, 0.2)),
                     density=3.0,
                     friction=0.0
                 ),
                 fixedRotation=True
             )
         )
-
-        camera_body = self.world.CreateDynamicBody(
-                position=current_position,
-                fixtures=b2FixtureDef(
-                    shape=b2PolygonShape(box=(0.5, 0.5)),
-                    density=3.0,
-                    friction=0.0
-                ),
-                fixedRotation=True
-            )
         # Set up the camera for rendering to screen
         self.camera = Camera(current_position, wall_height, width, height, camera_body)
 
@@ -186,9 +190,6 @@ class Engine:
     # Handles all valid key presses
     def process_keys(self):
         keys = pygame.key.get_pressed()
-        # Handle closing the game
-        if keys[pygame.K_ESCAPE]:
-            return False
         # Handle moving dynamicbox
         if keys[pygame.K_LEFT]:
             self.dynamic_body.body.ApplyLinearImpulse(b2Vec2(-1.0, 0.0), self.dynamic_body.body.position, True)
@@ -245,6 +246,271 @@ class Engine:
         return self.camera.get_position()
 
 
+# A segment represents a vertical slice of the final rendered image
+class Segment:
+    def __init__(self, color, p1, p2):
+        self.color = color
+        self.p1 = p1
+        self.p2 = p2
+
+    def get_color(self):
+        return self.color
+
+    def set_color(self, color):
+        self.color = color
+
+    def get_p1(self):
+        return self.p1
+
+    def set_p1(self, p1):
+        self.p1 = p1
+
+    def get_p2(self):
+        return self.p2
+
+    def set_p2(self, p2):
+        self.p2 = p2
+
+
+# Stores the state of each frame generated from the pycaster engine
+class FrameState:
+    def __init__(self):
+        # A list of segments which make up each individual vertical line to be displayed on the screen
+        self.segments = []
+        # The width of each segment
+        self.segment_width = 0
+
+    def get_segments(self):
+        return self.segments
+
+    def set_segments(self, segments):
+        self.segments = segments
+
+    def add_segment(self, segment):
+        self.segments.append(segment)
+
+    def clear_segments(self):
+        self.segments.clear()
+
+    def get_segment_width(self):
+        return self.segment_width
+
+    def set_segment_width(self, segment_width):
+        self.segment_width = segment_width
+
+
+class WorldState:
+    def __init__(self):
+        self.walls = {}
+        self.circles = {}
+
+    def load_state(self, filename):
+        with open(filename, 'r') as file:
+            self.walls.clear()
+            self.circles.clear()
+            for line in file:
+                line_split = line.split(':')
+                key = line_split[0]
+                vals = line_split[1].split('; ')
+                if key in self.walls:
+                    self.walls[key].append(geometry.Wall(eval(vals[0]), eval(vals[1]), eval(vals[2])))
+                else:
+                    self.walls[key] = [geometry.Wall(eval(vals[0]), eval(vals[1]), eval(vals[2]))]
+
+    def save_state(self, filename):
+        print("saving!")
+        with open(filename, 'w') as file:
+            data = ""
+            for k in self.walls:
+                for w in self.walls[k]:
+                    data += "{0}: {1}; {2}; {3}\n".format(k, w.get_p1(), w.get_p2(), w.get_color())
+            # Remove trailing newline
+            data = data[0:len(data) - 1]
+            file.write(data)
+
+    def get_circles(self):
+        return self.circles
+
+    def set_circles(self, circles):
+        self.circles = circles
+
+    def add_circles(self, key, circles):
+        if key in self.circles:
+            temp = self.circles[key]
+            for circle in circles:
+                temp.append(circle)
+            self.circles[key] = temp
+        else:
+            self.circles[key] = circles
+
+    def remove_circle(self, key, circle):
+        self.circles[key].remove(circle)
+
+    def change_circles(self, key, circles):
+        self.circles[key] = circles
+
+    def remove_circle_group(self, key):
+        self.circles.pop(key)
+
+    def remove_all_circles(self):
+        self.circles.clear()
+
+    def get_all_walls(self):
+        return self.walls
+
+    def get_walls_in_range(self, c, r):
+        """
+        Used in broad-phase collision detection, only returns walls that are from a certain distance of a point
+        :param c: center of the point
+        :param r: radius out from that point
+        :return: walls dictionary containing collidable walls
+        """
+        c_walls = {}
+        for k in self.walls:
+            temp = []
+            for wall in self.walls[k]:
+                p1 = wall.get_p1()
+                p2 = wall.get_p2()
+                if c[0] - r < p1[0] < c[0] + r and c[1] - r < p1[1] < c[1] + r:
+                    temp.append(wall)
+                elif c[0] - r < p2[0] < c[0] + r and c[1] - r < p2[1] < c[1] + r:
+                    temp.append(wall)
+            c_walls[k] = temp
+        return c_walls
+
+    def set_walls(self, walls):
+        """
+        Sets the walls dict to a new walls dict
+        :param walls: new walls dict
+        """
+        self.walls = walls
+
+    def add_walls(self, key, walls):
+        """
+        Adds a list of walls to the dict
+        DOES NOT REPLACE
+        :param key: wall group
+        :param walls: set of walls to add to the group
+        """
+        if key in self.walls:
+            temp = self.walls[key]
+            for wall in walls:
+                temp.append(wall)
+            self.walls[key] = temp
+        else:
+            self.walls[key] = walls
+
+    def remove_wall(self, key, wall):
+        """
+        Removes a specific wall from the walls dict
+        :param key: group of walls
+        :param wall: specific wall being removed
+        """
+        self.walls[key].remove(wall)
+
+    def change_walls(self, key, walls):
+        """
+        Updates a list of walls in the dict
+        WILL REPLACE THE WALLS
+        """
+        self.walls[key] = walls
+
+    def remove_wall_group(self, key):
+        """
+        Removes a group of walls
+        :param key: wall group
+        """
+        self.walls.pop(key)
+
+    def remove_all_walls(self):
+        """
+        Clears the entire walls dict
+        """
+        self.walls.clear()
+
+    def get_world_object_count(self):
+        s = 0
+        for k in self.walls:
+            s += len(self.walls[k])
+        for k in self.circles:
+            s += len(self.circles[k])
+        return s
+
+
+class DynamicBox:
+    """
+    A render-able box that uses the box2d physics engine
+    """
+    def __init__(self, body):
+        self.body = body
+        self.body_width = 0
+        self.body_height = 0
+        self.gen_dims()
+
+    def gen_dims(self):
+        """
+        Sets the body_width and body_height vars
+        """
+        for fixture in self.body.fixtures:
+            transform = self.body.transform
+            t_pos = (transform.position.x, transform.position.y)
+            r_verts = self.rotate_point_list((0, 0), fixture.shape.vertices, transform.angle)
+            w_verts = [(v[0] + t_pos[0], v[1] + t_pos[1]) for v in r_verts]
+            s_verts = [self.convert_b2p(v) for v in w_verts]
+            self.body_width = geometry.dist(s_verts[0], s_verts[1])
+            self.body_height = geometry.dist(s_verts[0], s_verts[3])
+
+    def get_walls(self):
+        """
+        Returns the b2Body dimensions as a set of pycaster walls
+        :return: set of pycaster walls
+        """
+        transform = self.body.transform
+        for fixture in self.body.fixtures:
+            r_verts = self.rotate_point_list((0, 0), fixture.shape.vertices, transform.angle)
+            w_verts = [(v[0] + transform.position.x, v[1] + transform.position.y) for v in r_verts]
+            s_verts = [self.convert_b2p(v) for v in w_verts]
+            walls = []
+            for i in range(len(s_verts)):
+                wall = geometry.Wall(s_verts[i], s_verts[(i+1) % len(s_verts)], (255, 0, 0))
+                walls.append(wall)
+            return walls
+
+    def convert_b2p(self, pos):
+        """
+        Converts box2d coordinates to pycaster coordinates
+        :param pos:
+        :return:
+        """
+        return pos[0] * 10, pos[1] * 10
+
+    def convert_p2b(self, pos):
+        return pos[0]/10, pos[1]/10
+
+    def rotate_point_list(self, origin, points, angle):
+        """
+        Rotates points around the origin from a given angle
+        :param origin: center of rotation
+        :param points: points to be rotated
+        :param angle: angle of rotation
+        :return: new set of rotated points
+        """
+        s = math.sin(angle)
+        c = math.cos(angle)
+        r_points = []
+        for p in points:
+            px = p[0]
+            py = p[1]
+            px -= origin[0]
+            py -= origin[1]
+            rx = px * c - py * s
+            ry = px * s + py * c
+            nx = rx + origin[0]
+            ny = ry + origin[1]
+            r_points.append((nx, ny))
+        return r_points
+
+
 class Camera:
     def __init__(self, position, wall_height, width, height, body):
         # initialize the config parsers
@@ -252,10 +518,10 @@ class Camera:
         config.read('settings.ini')
         en_config = config['ENGINE']
         mo_config = config['MOVEMENT']
-        
+
         self.width = width
         self.height = height
-        self.camera_body = body
+        self.camera_box = body
 
         # Height scalar of each projected wall
         self.wall_height = wall_height
@@ -296,7 +562,7 @@ class Camera:
 
         # Current amount sprint is being applied
         self.sprint_mod = 0
-        
+
         # Current position
         self.position = position
 
@@ -496,6 +762,7 @@ class Camera:
             self.rotate_left()
         if keys[pygame.K_e]:
             self.rotate_right()
+        self.camera_box.body.position = self.camera_box.convert_p2b(self.position)
         # This but list comprehension just for the heck of it
         # [self.movements[k]() if keys[k] else None for k in self.movements]
         return True
@@ -578,7 +845,7 @@ class Camera:
                 self.rotation_delta = (360 * (math.pi / 180))
             if self.rotation_delta > (0 * (math.pi / 180)):
                 self.rotation_delta = self.rotation_delta + delta
-    
+
     def check_movement_collisions(self, cur_pos, new_pos, walls):
         """
         Checks if a wall passes through the movement from one pos to another
@@ -605,268 +872,3 @@ class Camera:
                         np = cur_pos[0] + x_diff, cur_pos[1] + y_diff
                         return np
         return new_pos
-
-
-# A segment represents a vertical slice of the final rendered image
-class Segment:
-    def __init__(self, color, p1, p2):
-        self.color = color
-        self.p1 = p1
-        self.p2 = p2
-
-    def get_color(self):
-        return self.color
-
-    def set_color(self, color):
-        self.color = color
-
-    def get_p1(self):
-        return self.p1
-
-    def set_p1(self, p1):
-        self.p1 = p1
-
-    def get_p2(self):
-        return self.p2
-
-    def set_p2(self, p2):
-        self.p2 = p2
-
-
-# Stores the state of each frame generated from the pycaster engine
-class FrameState:
-    def __init__(self):
-        # A list of segments which make up each individual vertical line to be displayed on the screen
-        self.segments = []
-        # The width of each segment
-        self.segment_width = 0
-
-    def get_segments(self):
-        return self.segments
-
-    def set_segments(self, segments):
-        self.segments = segments
-
-    def add_segment(self, segment):
-        self.segments.append(segment)
-
-    def clear_segments(self):
-        self.segments.clear()
-
-    def get_segment_width(self):
-        return self.segment_width
-
-    def set_segment_width(self, segment_width):
-        self.segment_width = segment_width
-
-
-class WorldState:
-    def __init__(self):
-        self.walls = {}
-        self.circles = {}
-
-    def load_state(self, filename):
-        with open(filename, 'r') as file:
-            self.walls.clear()
-            self.circles.clear()
-            for line in file:
-                line_split = line.split(':')
-                key = line_split[0]
-                vals = line_split[1].split('; ')
-                if key in self.walls:
-                    self.walls[key].append(geometry.Wall(eval(vals[0]), eval(vals[1]), eval(vals[2])))
-                else:
-                    self.walls[key] = [geometry.Wall(eval(vals[0]), eval(vals[1]), eval(vals[2]))]
-
-    # TODO: saving multiple times because key is being pressed
-    def save_state(self, filename):
-        print("saving!")
-        with open(filename, 'w') as file:
-            data = ""
-            for k in self.walls:
-                for w in self.walls[k]:
-                    data += "{0}: {1}; {2}; {3}\n".format(k, w.get_p1(), w.get_p2(), w.get_color())
-            # Remove trailing newline
-            data = data[0:len(data) - 1]
-            file.write(data)
-
-    def get_circles(self):
-        return self.circles
-
-    def set_circles(self, circles):
-        self.circles = circles
-
-    def add_circles(self, key, circles):
-        if key in self.circles:
-            temp = self.circles[key]
-            for circle in circles:
-                temp.append(circle)
-            self.circles[key] = temp
-        else:
-            self.circles[key] = circles
-
-    def remove_circle(self, key, circle):
-        self.circles[key].remove(circle)
-
-    def change_circles(self, key, circles):
-        self.circles[key] = circles
-
-    def remove_circle_group(self, key):
-        self.circles.pop(key)
-
-    def remove_all_circles(self):
-        self.circles.clear()
-
-    def get_all_walls(self):
-        return self.walls
-
-    def get_walls_in_range(self, c, r):
-        """
-        Used in broad-phase collision detection, only returns walls that are from a certain distance of a point
-        :param c: center of the point
-        :param r: radius out from that point
-        :return: walls dictionary containing collidable walls
-        """
-        c_walls = {}
-        for k in self.walls:
-            temp = []
-            for wall in self.walls[k]:
-                p1 = wall.get_p1()
-                p2 = wall.get_p2()
-                if c[0] - r < p1[0] < c[0] + r and c[1] - r < p1[1] < c[1] + r:
-                    temp.append(wall)
-                elif c[0] - r < p2[0] < c[0] + r and c[1] - r < p2[1] < c[1] + r:
-                    temp.append(wall)
-            c_walls[k] = temp
-        return c_walls
-
-    def set_walls(self, walls):
-        """
-        Sets the walls dict to a new walls dict
-        :param walls: new walls dict
-        """
-        self.walls = walls
-
-    def add_walls(self, key, walls):
-        """
-        Adds a list of walls to the dict
-        DOES NOT REPLACE
-        :param key: wall group
-        :param walls: set of walls to add to the group
-        """
-        if key in self.walls:
-            temp = self.walls[key]
-            for wall in walls:
-                temp.append(wall)
-            self.walls[key] = temp
-        else:
-            self.walls[key] = walls
-
-    def remove_wall(self, key, wall):
-        """
-        Removes a specific wall from the walls dict
-        :param key: group of walls
-        :param wall: specific wall being removed
-        """
-        self.walls[key].remove(wall)
-
-
-    def change_walls(self, key, walls):
-        """
-        Updates a list of walls in the dict
-        WILL REPLACE THE WALLS
-        """
-        self.walls[key] = walls
-
-    def remove_wall_group(self, key):
-        """
-        Removes a group of walls
-        :param key: wall group
-        """
-        self.walls.pop(key)
-
-    def remove_all_walls(self):
-        """
-        Clears the entire walls dict
-        """
-        self.walls.clear()
-
-    def get_world_object_count(self):
-        s = 0
-        for k in self.walls:
-            s += len(self.walls[k])
-        for k in self.circles:
-            s += len(self.circles[k])
-        return s
-
-
-class DynamicBox:
-    """
-    A render-able box that uses the box2d physics engine
-    """
-    def __init__(self, body):
-        self.body = body
-        self.body_width = 0
-        self.body_height = 0
-        self.gen_dims()
-
-    def gen_dims(self):
-        """
-        Sets the body_width and body_height vars
-        """
-        for fixture in self.body.fixtures:
-            transform = self.body.transform
-            t_pos = (transform.position.x, transform.position.y)
-            r_verts = self.rotate_point_list((0, 0), fixture.shape.vertices, transform.angle)
-            w_verts = [(v[0] + t_pos[0], v[1] + t_pos[1]) for v in r_verts]
-            s_verts = [self.convert_b2p(v) for v in w_verts]
-            self.body_width = geometry.dist(s_verts[0], s_verts[1])
-            self.body_height = geometry.dist(s_verts[0], s_verts[3])
-
-    def get_walls(self):
-        """
-        Returns the b2Body dimensions as a set of pycaster walls
-        :return: set of pycaster walls
-        """
-        transform = self.body.transform
-        for fixture in self.body.fixtures:
-            r_verts = self.rotate_point_list((0, 0), fixture.shape.vertices, transform.angle)
-            w_verts = [(v[0] + transform.position.x, v[1] + transform.position.y) for v in r_verts]
-            s_verts = [self.convert_b2p(v) for v in w_verts]
-            walls = []
-            for i in range(len(s_verts)):
-                wall = geometry.Wall(s_verts[i], s_verts[(i+1) % len(s_verts)], (255, 0, 0))
-                walls.append(wall)
-            return walls
-
-    def convert_b2p(self, pos):
-        """
-        Converts box2d coordinates to pycaster coordinates
-        :param pos:
-        :return:
-        """
-        return pos[0] * 10, pos[1] * 10
-
-    def rotate_point_list(self, origin, points, angle):
-        """
-        Rotates points around the origin from a given angle
-        :param origin: center of rotation
-        :param points: points to be rotated
-        :param angle: angle of rotation
-        :return: new set of rotated points
-        """
-        s = math.sin(angle)
-        c = math.cos(angle)
-        r_points = []
-        for p in points:
-            px = p[0]
-            py = p[1]
-            px -= origin[0]
-            py -= origin[1]
-            rx = px * c - py * s
-            ry = px * s + py * c
-            nx = rx + origin[0]
-            ny = ry + origin[1]
-            r_points.append((nx, ny))
-        return r_points
-

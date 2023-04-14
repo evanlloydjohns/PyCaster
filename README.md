@@ -19,6 +19,7 @@ This project is currently in it's infant state, as I work out bugs and add more 
 
 ## Screenshots
 
+![](resources/demo_images/pycaster_demo_startmenu.png)
 ![](resources/demo_images/pycaster_demo_01.png)
 ![](resources/demo_images/pycaster_demo_02.png)
 
@@ -30,24 +31,24 @@ TODOs:
 - [x] Formalize a wolrd objects data structure for future additions
 - [x] Reformat engine and game initialization to better support OOP principles
 - [x] Add broad-phase collision selection for walls
-- [ ] Add a GUI module for implementation of a start menu and pause menu
+- [x] Add a GUI module for implementation of a start menu and pause menu
 - [ ] Investigate migrating mouse button input to engine.process_mouse_buttons()
 - [ ] Add config for variable graphics modules (maybe class that handles controls depending on module)
-- [ ] Investigate using the buffer swap principle for movement updates
 - [ ] Investigate the use of a decorator for the player collision check
 - [ ] Need to make mouse movement smooth
-- [ ] Allow player to slide along wall (do some trig stuff I guess)
+- [x] Allow player to slide along wall (do some trig stuff I guess)
 
 
 Large Goals:
 - [x] Add a legitimate ReadMe!
 - [x] Add better documentation (Seriously, document your code)
-- [ ] Optimize calculations by dynamically selecting walls/rays
+- [x] Optimize calculations by dynamically selecting walls/rays
+- [ ] Further investigate more efficient ways of calculating collisions
 - [ ] Add dynamic texture mapping to world objects
-- [ ] Add menu system
-- [ ] Add loading and saving of world states
+- [x] Add menu system
+- [x] Add loading and saving of world states
 - [ ] Add entities
 - [ ] Add more propper floors/ceilings
 - [ ] Switch to a more efficient graphics module
-- [ ] Create a world editor
+- [x] Create a world editor
 
