@@ -1,7 +1,5 @@
 from random import randint
 
-from Box2D import *
-
 import configparser
 import math
 import pygame
@@ -41,35 +39,8 @@ class Engine:
         # self.circles = {}
         self.world_objects = WorldState()
 
-        # Setup Box2D
-        self.gravity = b2Vec2(0.0, 0.0)
-        self.world = b2World(gravity=self.gravity)
-
-        self.dynamic_body = DynamicBox(
-            self.world.CreateDynamicBody(
-                position=(0.0, 3.0),
-                fixtures=b2FixtureDef(
-                    shape=b2PolygonShape(box=(0.3, 0.3)),
-                    density=3.0,
-                    friction=0.0
-                ),
-                fixedRotation=False
-            )
-        )
-
-        camera_body = DynamicBox(
-            self.world.CreateDynamicBody(
-                position=current_position,
-                fixtures=b2FixtureDef(
-                    shape=b2PolygonShape(box=(0.2, 0.2)),
-                    density=3.0,
-                    friction=0.0
-                ),
-                fixedRotation=True
-            )
-        )
         # Set up the camera for rendering to screen
-        self.camera = Camera(current_position, wall_height, width, height, camera_body)
+        self.camera = Camera(current_position, wall_height, width, height)
 
         self.debug_stats = {
             "value": {
@@ -94,11 +65,6 @@ class Engine:
     def update(self, dt):
         timer = support.Timer()
         self.debug_stats["time"]["start"] = timer.tick()
-        # Update physics
-        self.world.Step(dt, 6, 2)
-        # Get dynamic box location and add to walls dict
-        self.world_objects.change_walls("dynamicBox", self.dynamic_body.get_walls())
-        self.debug_stats["time"]["physics_step"] = timer.tick()
         # Updates all rays to current position
         self.camera.update_rays()
         self.debug_stats["time"]["update_rays"] = timer.tick()
@@ -183,25 +149,8 @@ class Engine:
 
     def process_mouse_movement(self, mouse_pos):
         self.camera.process_mouse_movement(mouse_pos)
-        # self.rotate(self.mouse_sensitivity * (mouse_pos[0] - (self.width / 2)) / 360)
 
-    # TODO: Use the buffer swap principle for movement updates
-    # TODO: remove keys param and call pygame.key.get_pressed()
-    # Handles all valid key presses
     def process_keys(self):
-        keys = pygame.key.get_pressed()
-        # Handle moving dynamicbox
-        if keys[pygame.K_LEFT]:
-            self.dynamic_body.body.ApplyLinearImpulse(b2Vec2(-1.0, 0.0), self.dynamic_body.body.position, True)
-
-        if keys[pygame.K_RIGHT]:
-            self.dynamic_body.body.ApplyLinearImpulse(b2Vec2(1.0, 0.0), self.dynamic_body.body.position, True)
-
-        if keys[pygame.K_UP]:
-            self.dynamic_body.body.ApplyLinearImpulse(b2Vec2(0.0, 1.0), self.dynamic_body.body.position, True)
-
-        if keys[pygame.K_DOWN]:
-            self.dynamic_body.body.ApplyLinearImpulse(b2Vec2(0.0, -1.0), self.dynamic_body.body.position, True)
         return self.camera.process_keys(self.world_objects.get_walls_in_range(self.camera.get_position(), 20))
 
     # Changes the color of the currently selected wall
@@ -437,82 +386,8 @@ class WorldState:
         return s
 
 
-class DynamicBox:
-    """
-    A render-able box that uses the box2d physics engine
-    """
-    def __init__(self, body):
-        self.body = body
-        self.body_width = 0
-        self.body_height = 0
-        self.gen_dims()
-
-    def gen_dims(self):
-        """
-        Sets the body_width and body_height vars
-        """
-        for fixture in self.body.fixtures:
-            transform = self.body.transform
-            t_pos = (transform.position.x, transform.position.y)
-            r_verts = self.rotate_point_list((0, 0), fixture.shape.vertices, transform.angle)
-            w_verts = [(v[0] + t_pos[0], v[1] + t_pos[1]) for v in r_verts]
-            s_verts = [self.convert_b2p(v) for v in w_verts]
-            self.body_width = geometry.dist(s_verts[0], s_verts[1])
-            self.body_height = geometry.dist(s_verts[0], s_verts[3])
-
-    def get_walls(self):
-        """
-        Returns the b2Body dimensions as a set of pycaster walls
-        :return: set of pycaster walls
-        """
-        transform = self.body.transform
-        for fixture in self.body.fixtures:
-            r_verts = self.rotate_point_list((0, 0), fixture.shape.vertices, transform.angle)
-            w_verts = [(v[0] + transform.position.x, v[1] + transform.position.y) for v in r_verts]
-            s_verts = [self.convert_b2p(v) for v in w_verts]
-            walls = []
-            for i in range(len(s_verts)):
-                wall = geometry.Wall(s_verts[i], s_verts[(i+1) % len(s_verts)], (255, 0, 0))
-                walls.append(wall)
-            return walls
-
-    def convert_b2p(self, pos):
-        """
-        Converts box2d coordinates to pycaster coordinates
-        :param pos:
-        :return:
-        """
-        return pos[0] * 10, pos[1] * 10
-
-    def convert_p2b(self, pos):
-        return pos[0]/10, pos[1]/10
-
-    def rotate_point_list(self, origin, points, angle):
-        """
-        Rotates points around the origin from a given angle
-        :param origin: center of rotation
-        :param points: points to be rotated
-        :param angle: angle of rotation
-        :return: new set of rotated points
-        """
-        s = math.sin(angle)
-        c = math.cos(angle)
-        r_points = []
-        for p in points:
-            px = p[0]
-            py = p[1]
-            px -= origin[0]
-            py -= origin[1]
-            rx = px * c - py * s
-            ry = px * s + py * c
-            nx = rx + origin[0]
-            ny = ry + origin[1]
-            r_points.append((nx, ny))
-        return r_points
-
-
 class Camera:
-    def __init__(self, position, wall_height, width, height, body):
+    def __init__(self, position, wall_height, width, height):
         # initialize the config parsers
         config = configparser.ConfigParser()
         config.read('settings.ini')
@@ -521,7 +396,6 @@ class Camera:
 
         self.width = width
         self.height = height
-        self.camera_box = body
 
         # Height scalar of each projected wall
         self.wall_height = wall_height
@@ -762,7 +636,6 @@ class Camera:
             self.rotate_left()
         if keys[pygame.K_e]:
             self.rotate_right()
-        self.camera_box.body.position = self.camera_box.convert_p2b(self.position)
         # This but list comprehension just for the heck of it
         # [self.movements[k]() if keys[k] else None for k in self.movements]
         return True
