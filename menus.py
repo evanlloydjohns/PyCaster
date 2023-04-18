@@ -125,7 +125,7 @@ class PauseMenuInterface(Interface):
             self.set_running(False)
 
         def reset_action():
-            self.reset_map("board.txt")
+            self.reset_map("map.txt")
 
         b_width = 300
         b_height = 50

@@ -23,11 +23,9 @@ def intersect(l1, l2):
 
     if 0 <= s <= 1 and 0 <= t <= 1:
         return (p0[0] + (t * s1[0])), (p0[1] + (t * s1[1]))
-
     return None
 
 
-# TODO: Issue with setting circle to selected, has to do with only finding one intersection while looking at circle
 # Thanks to this magnificent person:
 # https://stackoverflow.com/questions/30844482/what-is-most-efficient-way-to-find-the-intersection-of-a-line-and-a-circle-in-py
 # Adapted to work with the current codebase
@@ -186,8 +184,6 @@ class Wall(Line):
         self.color = color
         self.width = 1
         self.selected = False
-        # Used in debug and in texture mapping
-        self.col_points = []
         super().__init__(p1, p2)
 
     def get_color(self):
@@ -213,15 +209,6 @@ class Wall(Line):
 
     def get_selected(self):
         return self.selected
-
-    def clear_col_points(self):
-        self.col_points.clear()
-
-    def get_col_points(self):
-        return self.col_points
-
-    def add_col_point(self, point):
-        self.col_points.append(point)
 
 
 class Ray(Line):

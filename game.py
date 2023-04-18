@@ -13,18 +13,11 @@ from instances import GameState
 # and just call that state's three methods.
 
 # TODO: Use Mazetric to run through a maze
-
-# TODO: Saving/loading does not support circles
-
-# TODO: We could use box2d to introduce physics. pushing and pulling walls around.
-
-# TODO: Investigate adding a wall culling script for walls that are a subset of other walls
-# TODO: Add a GUI module for implementation of a start menu and pause menu
 # Collection of pre-defined colors
 colors = {
     "RED": (255, 0, 0),
-    "SKY": (63, 63, 63),
-    "GROUND": (63, 63, 63),
+    "SKY": (0, 0, 0),
+    "GROUND": (0, 0, 0),
     "GREEN": (0, 255, 0),
     "BLUE": (0, 0, 255),
     "BLACK": (0, 0, 0),
@@ -48,7 +41,7 @@ def set_running(new_running):
 
 
 def gen_walls():
-    with open("board.txt", 'r') as file:
+    with open("map.txt", 'r') as file:
         walls = []
         for line in file:
             line_split = line.split(':')
@@ -56,51 +49,6 @@ def gen_walls():
             vals = line_split[1].split('; ')
             walls.append(geometry.Wall(eval(vals[0]), eval(vals[1]), eval(vals[2])))
         return walls
-    # s = 100
-    # d = 10
-    # cord_loc = []
-    # x_d = s / d
-    # y_d = s / d
-    # wl = [
-    #     # geometry.Wall((-s/2, -s/2), (-s/2, s/2), colors["WHITE"]),
-    #     # geometry.Wall((-s/2, s/2), (s/2, s/2), colors["WHITE"]),
-    #     # geometry.Wall((s/2, s/2), (s/2, -s/2), colors["WHITE"]),
-    #     # geometry.Wall((s/2, -s/2), (-s/2, -s/2), colors["WHITE"])
-    # ]
-
-    # for i in range(d):
-    #     c = []
-    #     for j in range(d):
-    #         i_x = (i * x_d) - s/2
-    #         j_y = (j * y_d) - s/2
-    #         c.append((i_x, j_y))
-    #     cord_loc.append(c)
-    # for i in range(d):
-    #     for j in range(d):
-    #         if j % 2 == 0:
-    #             if j + 1 is not d:
-    #                 wl.append(geometry.Wall(cord_loc[i][j], cord_loc[i][j + 1], colors["WHITE"]))
-    #             else:
-    #                 pass
-    #         if i % 2 == 0:
-    #             if i + 1 is not d:
-    #                 wl.append(geometry.Wall(cord_loc[i][j], cord_loc[i + 1][j], colors["WHITE"]))
-    # return wl
-    # maze = [[0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-    #         [0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0],
-    #         [0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0],
-    #         [0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0],
-    #         [0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0],
-    #         [0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0],
-    #         [0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0],
-    #         [0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0],
-    #         [0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0],
-    #         [0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0],
-    #         [0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0],
-    #         [0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0],
-    #         [0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0],
-    #         [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]]
-    # return translate_map_coords(maze)
 
 
 def translate_map_coords(map):
@@ -121,18 +69,6 @@ def translate_map_coords(map):
 # combines walls that can be made of a larger wall
 def consolidate_walls(key):
     # Maximum distance for connected walls
-    # TODO: figure out how to cut out walls that are within a collidable distance
-    walls = engine.get_world_state().get_all_walls()[key]
-    for i in range(len(walls)):
-        w1 = walls[i]
-        for j in range(i+1, len(walls)):
-            w2 = walls[j]
-
-    # if w1p2 == w2p1:
-    #   t_wall = w1p1, w2p2
-    #   m_p = w1p2
-    #   if line_point_intersect(m_p, t_wall) if not None:
-    #       wall = w1p1, w2p2
     con_walls = []
     walls = engine.get_world_state().get_all_walls()[key]
     for i in range(len(walls)):
@@ -146,8 +82,6 @@ def consolidate_walls(key):
                 m_p = w1p2
                 if geometry.line_point(t_wall, m_p):
                     con_walls.append(t_wall)
-    # for wall in con_walls:
-    #     print("p1:{0} p2:{1}".format(wall.get_p1(), wall.get_p2()))
     engine.get_world_state().remove_wall_group(key)
     engine.get_world_state().add_walls(key, walls)
 
@@ -170,10 +104,6 @@ def cull_redundant_walls(key):
 
 def gen_circles():
     cl = []
-    # cl.append(geometry.Circle((100, 100), 3, (255, 0, 0)))
-    # cl.append(geometry.Circle((110, 105), 3, (0, 255, 0)))
-    # cl.append(geometry.Circle((115, 110), 3, (0, 0, 255)))
-    # cl.append(geometry.Circle((100, 110), 3, (255, 0, 255)))
     return cl
 
 
@@ -197,19 +127,9 @@ def load_state(filename):
 def save_state(filename):
     print("saving!")
     engine.get_world_state().save_state(filename)
-    # with open(filename, 'w') as file:
-    #     data = ""
-    #     walls = engine.get_world_state().get_walls()
-    #     for k in walls:
-    #         for w in walls[k]:
-    #             data += "{0}: {1}; {2}; {3}\n".format(k, w.get_p1(), w.get_p2(), w.get_color())
-    #     # Remove trailing newline
-    #     data = data[0:len(data) - 1]
-    #     file.write(data)
 
 
 def draw_frame():
-
     screen = pygame.display.get_surface()
     frame = engine.process_outputs()
     screen.fill(colors["BLACK"])
@@ -270,13 +190,12 @@ def process_inputs():
                     pygame.mouse.set_visible(True)
                 # Handle saving and loading
                 if event.key == pygame.K_o:
-                    save_state("board.txt")
+                    save_state("map.txt")
                 if event.key == pygame.K_p:
-                    load_state("board.txt")
+                    load_state("map.txt")
             # Check for exit condition
             if event.type == pygame.QUIT:
                 running = False
-            # TODO: Investigate migrating mouse button input to engine.process_mouse_buttons()
             if event.type == pygame.MOUSEBUTTONDOWN:
                 # Color wall on left click
                 if event.button == 1:

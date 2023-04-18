@@ -1,4 +1,5 @@
 from random import randint
+import threading
 
 import configparser
 import math
@@ -12,10 +13,8 @@ def rand_color():
     return randint(0, 255), randint(0, 255), randint(0, 255)
 
 
-# TODO: Should my positions be stored as vectors instead?
-# TODO: Add saving and loading of the world state
-# TODO: Check line magnitude and if large then don't calculate collisions on that ray for broad phase
-# TODO: Checkout pygame gui instead of tkinter
+# TODO: Investigate the addition of a radial gradient to simulate a light source from the player location
+
 class Engine:
     def __init__(self, width, height, wall_height, current_position):
         # initialize the config parsers
@@ -28,19 +27,13 @@ class Engine:
         self.width = width
         self.height = height
 
-        # Dictionary containing all lists of walls
-        # We store each grouping of walls in a dictionary so that we can differentiate what walls belong to
-        # what processes. The initial group of walls is called "Default". If we want to add more groups, we just
-        # create a new group name and add them to the dictionary. This gives us the ability to potentially store
-        # other types of objects in the future, and to be able to handle them differently depending on their key/tag
-        # self.walls = {}
-
-        # Dictionary containing all lists of circles
-        # self.circles = {}
+        # Stores the state of all objects
         self.world_objects = WorldState()
 
         # Set up the camera for rendering to screen
         self.camera = Camera(current_position, wall_height, width, height)
+
+        self.close_objects = self.world_objects.get_walls_in_range(self.camera.get_position(), self.camera.get_view_radius())
 
         self.debug_stats = {
             "value": {
@@ -78,6 +71,7 @@ class Engine:
         self.camera.update_camera()
         self.debug_stats["time"]["update_camera"] = timer.tick()
         # Checks collisions with projected rays and walls
+        self.close_objects = self.world_objects.get_walls_in_range(self.camera.get_position(), self.camera.get_view_radius())
         self.check_collisions(self.camera.get_camera_rays())
         self.debug_stats["time"]["check_collisions"] = timer.tick()
         self.debug_stats["time"]["end"] = timer.get_total_time()
@@ -86,10 +80,9 @@ class Engine:
         return self.camera.generate_frame()
 
     # Sets the object we are currently looking at to be selected
-    # TODO: Investigate circles having thousands of col_points
     def set_facing_object(self):
         center_ray = self.camera.get_center_ray()
-        walls = self.world_objects.get_walls_in_range(self.camera.get_position(), self.camera.get_view_radius())
+        walls = self.close_objects
         circles = self.world_objects.get_circles()
         for k in walls:
             for w in walls[k]:
@@ -109,7 +102,7 @@ class Engine:
 
     # Returns an instance of the wall currently being looked at
     def get_facing_object(self):
-        walls = self.world_objects.get_walls_in_range(self.camera.get_position(), self.camera.get_view_radius())
+        walls = self.close_objects
         circles = self.world_objects.get_circles()
         for k in walls:
             for w in walls[k]:
@@ -123,9 +116,8 @@ class Engine:
 
     # Deletes the wall we are currently looking at
     def remove_facing_object(self):
-        # TODO: Move to process_mouse_buttons()
         self.set_facing_object()
-        walls = self.world_objects.get_walls_in_range(self.camera.get_position(), self.camera.get_view_radius())
+        walls = self.close_objects
         circles = self.world_objects.get_circles()
         center_ray = self.camera.get_center_ray()
         for k in walls:
@@ -151,11 +143,10 @@ class Engine:
         self.camera.process_mouse_movement(mouse_pos)
 
     def process_keys(self):
-        return self.camera.process_keys(self.world_objects.get_walls_in_range(self.camera.get_position(), 20))
+        return self.camera.process_keys(self.close_objects)
 
     # Changes the color of the currently selected wall
     def color_wall(self, color):
-        # TODO: Move to process_mouse_buttons()
         self.set_facing_object()
         facing_wall = self.get_facing_object()
         if facing_wall is not None:
@@ -163,7 +154,7 @@ class Engine:
 
     # Checks for collisions between a set of rays and all walls/circles
     def check_collisions(self, rays):
-        walls = self.world_objects.get_walls_in_range(self.camera.get_position(), self.camera.get_view_radius())
+        walls = self.close_objects
         circles = self.world_objects.get_circles()
         for ray in rays:
             for k in walls:
@@ -173,14 +164,12 @@ class Engine:
                         ray.set_color(w.get_color())
                         ray.set_p2(p2)
                         ray.set_wall(w)
-                        # w.add_col_point(p2)
             for k in circles:
                 for c in circles[k]:
                     p2 = geometry.circle_line_segment_intersection(c.get_p1(), c.get_r(), ray.get_p1(), ray.get_p2())
                     if p2 is not None:
                         ray.set_color(c.get_color())
                         ray.set_p2(p2)
-                        # c.add_col_point(p2)
 
     def set_world_objects(self, world_objects):
         self.world_objects = world_objects
@@ -462,10 +451,9 @@ class Camera:
         self.fov_upper = self.rotation_delta + self.fov
 
         # Color of distance fog
-        self.fog_color = (63, 63, 63)
+        self.fog_color = (0, 0, 0)
 
         # Used for looking up the appropriate action for a key press
-        # TODO: Need to be passing in a set of walls to the move funcs
         self.movements = {
             pygame.K_a: self.move_left,
             pygame.K_d: self.move_right,
@@ -607,15 +595,12 @@ class Camera:
             segment_count += 1
         return frame
 
-    # TODO: Investigate the addition of a radial gradient to simulate a light source from the player location
     # Behold, the epitome of list comprehension
     def depth_shader(self, col, length, aug):
         return [
             max(aug[i], col[i] - ((col[i] - aug[i]) * math.log(length + 1) / math.log(self.lighting_distance + 1)))
             for i in range(len(col))]
 
-    # TODO: Use the buffer swap principle for movement updates
-    # TODO: remove keys param and call pygame.key.get_pressed()
     # Handles all valid key presses
     def process_keys(self, movement_collidable_walls):
         keys = pygame.key.get_pressed()
@@ -662,7 +647,6 @@ class Camera:
     def set_position(self, position):
         self.position = position
 
-    # TODO: Investigate the use of a decorator for the player collision check
     def move_left(self, walls):
         p1 = self.position
         x = (p1[0] - ((self.movement_units + self.sprint_mod) *
@@ -706,7 +690,6 @@ class Camera:
         # self.rotate(self.mouse_sensitivity * (mouse_pos[0] - (self.width / 2)) / 360)
 
     # Rotates the camera a certain number of degrees
-    # TODO: Need to make mouse movement smooth
     def rotate(self, delta):
         if delta > 0:
             if self.rotation_delta < (360 * (math.pi / 180)):
