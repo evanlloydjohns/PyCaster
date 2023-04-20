@@ -40,15 +40,12 @@ class Engine:
                 "total_obj_count": self.get_world_state().get_world_object_count(),
                 "camera_ray_count": len(self.camera.get_camera_rays()),
                 "total_ray_count": self.camera.get_ray_count(),
-                "view_angle": round(self.camera.get_rotation_delta() * (180 / math.pi))
+                "view_angle": round(self.camera.get_rotation_delta() * (180 / math.pi)),
+                "view_angle(rads)": self.camera.get_rotation_delta()
             },
             "time": {
                 "start": 0,
-                "physics_step": 0,
-                "update_rays": 0,
-                "update_cone": 0,
-                "update_camera_plane": 0,
-                "update_camera": 0,
+                "cast_rays": 0,
                 "check_collisions": 0,
                 "end": 0
             }
@@ -58,18 +55,9 @@ class Engine:
     def update(self, dt):
         timer = support.Timer()
         self.debug_stats["time"]["start"] = timer.tick()
-        # Updates all rays to current position
-        self.camera.update_rays()
-        self.debug_stats["time"]["update_rays"] = timer.tick()
-        # Updates the set of rays withing to fov cone
+        # Recast rays at current position
         self.camera.update_cone()
-        self.debug_stats["time"]["update_cone"] = timer.tick()
-        # Updates the plane in which rays will be project onto [DEPRECIATED]
-        self.camera.update_camera_plane()
-        self.debug_stats["time"]["update_camera_plane"] = timer.tick()
-        # Updates rays for their projection and saves them in a list [DEPRECIATED]
-        self.camera.update_camera()
-        self.debug_stats["time"]["update_camera"] = timer.tick()
+        self.debug_stats["time"]["cast_rays"] = timer.tick()
         # Checks collisions with projected rays and walls
         self.close_objects = self.world_objects.get_walls_in_range(self.camera.get_position(), self.camera.get_view_radius())
         self.check_collisions(self.camera.get_camera_rays())
@@ -394,6 +382,8 @@ class Camera:
 
         # Distance the camera plane is from the center
         self.camera_plane_distance = (self.width / 2) / (math.tan(self.fov / 2))
+        print(self.camera_plane_distance)
+        self.camera_plane_distance = 10
 
         # Scale of projected line width, 1 = projected line width of 1
         self.resolution_scale = int(en_config['resolutionScale'])
@@ -422,6 +412,7 @@ class Camera:
 
         # Total number of rays
         self.ray_count = int((self.width / (self.fov / (360 * (math.pi / 180)))) / self.resolution_scale)
+        # self.ray_count = 100
 
         # Current amount sprint is being applied
         self.sprint_mod = 0
@@ -432,17 +423,8 @@ class Camera:
         # List of all rays cast from the camera
         self.all_rays = []
 
-        # Plane from which serves as the origin point for all displayed rays
-        self.camera_plane = geometry.Line((0, 0), (0, 0))
-
-        # Generate all
-        self.gen_rays()
-
         # All rays that are located inside the fov cone
         self.cone_rays = []
-
-        # All rays inside the fov cone, with origins adjusted for the camera plane
-        self.camera_rays = []
 
         # Angle the fov cone starts at
         self.fov_lower = self.rotation_delta
@@ -464,110 +446,49 @@ class Camera:
         }
 
         # Calculate center ray of the fov cone
+        angle = self.rotation_delta + (self.fov / 2)
         p1 = self.position
-        x = (p1[0] + (self.view_radius * math.cos(self.rotation_delta + (self.fov / 2))))
-        y = (p1[1] + (self.view_radius * math.sin(self.rotation_delta + (self.fov / 2))))
-        self.fov_center_ray = geometry.Ray(p1, (x, y), (255, 255, 255), 0)
+        p2 = self.cast_ray(p1, angle, self.view_radius)
+        self.fov_center_ray = geometry.Ray(p1, p2, (255, 255, 255), 0)
 
         # Update the fov cone
-        self.update_cone()
+        self.gen_cone()
 
-        # Update the current location of the camera plane relative to the camera
-        self.update_camera_plane()
+    def cast_ray(self, origin, angle, distance):
+        x = origin[0] + distance * math.cos(angle)
+        y = origin[1] + distance * math.sin(angle)
+        return x, y
 
-    # Initializes all the rays
-    def gen_rays(self):
-        rad_slice = (360.0 / self.ray_count) * (math.pi / 180)
+    def gen_cone(self):
         p1 = self.position
         for i in range(self.ray_count):
-            x = (p1[0] + (self.view_radius * math.cos(rad_slice * i)))
-            y = (p1[1] + (self.view_radius * math.sin(rad_slice * i)))
-            p2 = x, y
-            ray = geometry.Ray(p1, p2, (255, 255, 255), (rad_slice * i))
-            self.all_rays.append(ray)
-
-    # Updates all ray origin locations to current position
-    def update_rays(self):
-        rad_slice = (360.0 / self.ray_count) * (math.pi / 180)
-        p1 = self.position
-        for i in range(self.ray_count):
-            x = (p1[0] + (self.view_radius * math.cos(rad_slice * i)))
-            y = (p1[1] + (self.view_radius * math.sin(rad_slice * i)))
-            p2 = x, y
-            self.all_rays[i].set_p1(p1)
-            self.all_rays[i].set_p2(p2)
+            angle = self.rotation_delta - self.fov / 2 + i * (self.fov / (self.ray_count - 1))
+            p2 = self.cast_ray(p1, angle, self.view_radius)
+            self.cone_rays.append(geometry.Ray(p1, p2, (255, 255, 255), angle))
 
     # Updates what rays are included in our FoV cone
     def update_cone(self):
-        self.cone_rays.clear()
-        self.fov_lower = self.rotation_delta
-        self.fov_upper = self.rotation_delta + self.fov
+        camera_plane_p1 = self.cast_ray(self.position, self.rotation_delta - self.fov / 2, self.camera_plane_distance)
+        camera_plane_p2_angle = self.rotation_delta - self.fov / 2 + (self.ray_count - 1) * (self.fov / (self.ray_count - 1))
+        camera_plane_p2 = self.cast_ray(self.position, camera_plane_p2_angle, self.camera_plane_distance)
 
-        # Account for loop-back on upper bound of fov cone
-        if self.fov_upper > (360 * (math.pi / 180)):
-            self.fov_upper = (self.rotation_delta + self.fov) - (360 * (math.pi / 180))
-
-        # Update center ray of the fov cone
+        camera_plane_length = geometry.length(geometry.Line(camera_plane_p1, camera_plane_p2))
         p1 = self.position
-        x = p1[0] + (self.view_radius * math.cos((self.fov / 2) + self.rotation_delta))
-        y = p1[1] + (self.view_radius * math.sin((self.fov / 2) + self.rotation_delta))
-        self.fov_center_ray.set_rd((self.fov / 2) + self.rotation_delta)
-        self.fov_center_ray.set_p2((x, y))
-        self.fov_center_ray.set_p1(self.position)
-
-        if self.fov_upper > self.fov_lower:
-            for i in range(self.ray_count):
-                rd = self.all_rays[i].get_rd()
-                if self.fov_lower <= rd <= self.fov_upper:
-                    self.cone_rays.append(self.all_rays[i])
-        if self.fov_lower > self.fov_upper:
-            for i in range(self.ray_count):
-                rd = self.all_rays[i].get_rd()
-                if self.fov_lower < rd < (360 * (math.pi / 180)):
-                    self.cone_rays.append(self.all_rays[i])
-            for i in range(self.ray_count):
-                rd = self.all_rays[i].get_rd()
-                if rd < self.fov_lower and rd < self.fov_upper:
-                    self.cone_rays.append(self.all_rays[i])
-
-    # Updates the plane to which we are rendering the rays from (can't render from a single point, need to use plane)
-    def update_camera_plane(self):
-        pos = self.position
-        r1 = self.cone_rays[0]
-        r2 = self.cone_rays[len(self.cone_rays) - 1]
-
-        x1 = pos[0] + (self.camera_plane_distance * math.cos(r1.get_rd()))
-        y1 = pos[1] + (self.camera_plane_distance * math.sin(r1.get_rd()))
-
-        x2 = pos[0] + (self.camera_plane_distance * math.cos(r2.get_rd()))
-        y2 = pos[1] + (self.camera_plane_distance * math.sin(r2.get_rd()))
-
-        p1 = x1, y1
-        p2 = x2, y2
-
-        self.camera_plane = geometry.Line(p1, p2)
-
-    # Updates the angle each ray is cast at from the camera plane
-    def update_camera(self):
-        # In order to prevent a pseudo fish-eye effect, we need to account for the
-        # angle which the rays are cast from. We do this by shifting the origin of
-        # each ray to an even interval along the camera plane. You can think of
-        # the camera plane as the window you are viewing the ray caster from.
-        self.camera_rays.clear()
-        for i in range(len(self.cone_rays)):
+        for i in range(self.ray_count):
             # Theta = angle from the fov center ray that intersects the camera plane at an even interval
-            theta = math.atan(((geometry.length(self.camera_plane) / len(self.cone_rays)) *
-                               (i - ((len(self.cone_rays) - 1) / 2))) / self.camera_plane_distance)
-            p1 = self.position
-            x = p1[0] + (self.view_radius * math.cos(self.fov_center_ray.get_rd() + theta))
-            y = p1[1] + (self.view_radius * math.sin(self.fov_center_ray.get_rd() + theta))
-            p2 = x, y
-            self.camera_rays.append(geometry.Ray(p1, p2, self.cone_rays[i].get_color(),
-                                                 self.fov_center_ray.get_rd() + theta))
+            theta = math.atan(((camera_plane_length / self.ray_count) * (i - ((self.ray_count - 1) / 2))) / self.camera_plane_distance)
+            # We use theta because without, we get a very odd distortion
+            # angle = self.rotation_delta - self.fov / 2 + i * (self.fov / (self.ray_count - 1))
+            angle = self.rotation_delta + theta
+            p2 = self.cast_ray(p1, angle, self.view_radius)
+
+            self.cone_rays[i].set_p1(p1)
+            self.cone_rays[i].set_p2(p2)
+            self.cone_rays[i].set_rd(angle)
 
     # Returns FrameState object, which contains all information about the
     def generate_frame(self):
-        rays = self.camera_rays.copy()
+        rays = self.cone_rays.copy()
 
         # Padding between each slice
         padding = self.width / len(rays)
@@ -576,18 +497,22 @@ class Camera:
         frame = FrameState()
         frame.set_segment_width(int(padding + 1))
         segment_count = 0
-        for ray in self.camera_rays:
-            ray_length = geometry.length(ray)
 
+        # Draw walls
+        for ray in self.cone_rays:
             # Help with the math: https://permadi.com/1996/05/ray-casting-tutorial-9/
+            ray_length = geometry.length(ray)
+            ray_relative_angle = self.rotation_delta - ray.get_rd()
+            ray_distance = ray_length * math.cos(ray_relative_angle)
+
+            actual_slice_height = self.wall_height
+            distance_to_slice = ray_distance
             distance_to_projection_plane = self.camera_plane_distance
-            distance_to_segment = max(ray_length * math.cos(math.fabs(ray.get_rd() - self.fov_center_ray.get_rd())),
-                                      1)
-            projected_segment_height = (self.wall_height / distance_to_segment) * distance_to_projection_plane
+            projected_slice_height = (actual_slice_height / distance_to_slice) * distance_to_projection_plane
 
             # Create the segment
-            seg_p1 = (segment_count * padding, (self.height / 2) - projected_segment_height / 2)
-            seg_p2 = (segment_count * padding, (self.height / 2) + projected_segment_height / 2)
+            seg_p1 = (segment_count * padding, (self.height / 2) - projected_slice_height / 2)
+            seg_p2 = (segment_count * padding, (self.height / 2) + projected_slice_height / 2)
             seg_c = self.depth_shader(ray.get_color(), ray_length, aug=self.fog_color)
 
             # Add segment to frame
@@ -635,11 +560,11 @@ class Camera:
         return self.ray_count
 
     def get_camera_rays(self):
-        return self.camera_rays
+        return self.cone_rays
 
     # Returns the ray at the center of the FoV cone
     def get_center_ray(self):
-        return self.camera_rays[round(len(self.camera_rays) / 2)]
+        return self.cone_rays[round(len(self.cone_rays) / 2)]
 
     def get_position(self):
         return self.position
@@ -648,36 +573,28 @@ class Camera:
         self.position = position
 
     def move_left(self, walls):
-        p1 = self.position
-        x = (p1[0] - ((self.movement_units + self.sprint_mod) *
-                      math.cos(self.rotation_delta + (self.fov / 2) + (90 * (math.pi / 180)))))
-        y = (p1[1] - ((self.movement_units + self.sprint_mod) *
-                      math.sin(self.rotation_delta + (self.fov / 2) + (90 * (math.pi / 180)))))
-        p2 = x, y
-        self.position = self.check_movement_collisions(p1, p2, walls)
+        dx = (self.movement_units + self.sprint_mod) * math.cos(self.rotation_delta - math.pi / 2)
+        dy = (self.movement_units + self.sprint_mod) * math.sin(self.rotation_delta - math.pi / 2)
+        self.position = (self.position[0] + dx, self.position[1] + dy)
+        # self.position = self.check_movement_collisions(p1, p2, walls)
 
     def move_right(self, walls):
-        p1 = self.position
-        x = (p1[0] + ((self.movement_units + self.sprint_mod) *
-                      math.cos(self.rotation_delta + (self.fov / 2) + (90 * (math.pi / 180)))))
-        y = (p1[1] + ((self.movement_units + self.sprint_mod) *
-                      math.sin(self.rotation_delta + (self.fov / 2) + (90 * (math.pi / 180)))))
-        p2 = x, y
-        self.position = self.check_movement_collisions(p1, p2, walls)
+        dx = (self.movement_units + self.sprint_mod) * math.cos(self.rotation_delta + math.pi / 2)
+        dy = (self.movement_units + self.sprint_mod) * math.sin(self.rotation_delta + math.pi / 2)
+        self.position = (self.position[0] + dx, self.position[1] + dy)
+        # self.position = self.check_movement_collisions(p1, p2, walls)
 
     def move_forward(self, walls):
-        p1 = self.position
-        x = (p1[0] + ((self.movement_units + self.sprint_mod) * math.cos(self.rotation_delta + (self.fov / 2))))
-        y = (p1[1] + ((self.movement_units + self.sprint_mod) * math.sin(self.rotation_delta + (self.fov / 2))))
-        p2 = x, y
-        self.position = self.check_movement_collisions(p1, p2, walls)
+        dx = (self.movement_units + self.sprint_mod) * math.cos(self.rotation_delta)
+        dy = (self.movement_units + self.sprint_mod) * math.sin(self.rotation_delta)
+        self.position = (self.position[0] + dx, self.position[1] + dy)
+        # self.position = self.check_movement_collisions(p1, p2, walls)
 
     def move_backward(self, walls):
-        p1 = self.position
-        x = (p1[0] - ((self.movement_units + self.sprint_mod) * math.cos(self.rotation_delta + (self.fov / 2))))
-        y = (p1[1] - ((self.movement_units + self.sprint_mod) * math.sin(self.rotation_delta + (self.fov / 2))))
-        p2 = x, y
-        self.position = self.check_movement_collisions(p1, p2, walls)
+        dx = (self.movement_units + self.sprint_mod) * math.cos(self.rotation_delta)
+        dy = (self.movement_units + self.sprint_mod) * math.sin(self.rotation_delta)
+        self.position = (self.position[0] - dx, self.position[1] - dy)
+        # self.position = self.check_movement_collisions(p1, p2, walls)
 
     def rotate_left(self):
         self.rotate(-self.rotation_units)

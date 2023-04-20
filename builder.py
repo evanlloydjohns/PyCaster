@@ -6,8 +6,8 @@ FRAME_RATE = 60
 SCREEN_WIDTH = 1200
 SCREEN_HEIGHT = 800
 
-MAP_ROW_COUNT = 10
-MAP_COL_COUNT = 10
+MAP_ROW_COUNT = 30 + 2
+MAP_COL_COUNT = 30 + 2
 
 
 class MapBuilder:
@@ -39,8 +39,8 @@ class MapBuilder:
                     self.tool_panel.check_button_on_click(pygame.mouse.get_pos())
 
     def update(self):
-        self.map.check_line_selections(pygame.mouse.get_pos())
-        self.tool_panel.check_button_focusing(pygame.mouse.get_pos())
+        self.map.update()
+        self.tool_panel.update()
 
     def outputs(self):
         self.draw()
@@ -86,6 +86,8 @@ class Map:
 
         self.current_line_color = (255, 255, 255)
 
+        self.line_preview = []
+
     def set_current_line_color(self, current_line_color):
         self.current_line_color = current_line_color
 
@@ -117,7 +119,31 @@ class Map:
             line.draw()
 
         if self.selected_line:
-            pygame.draw.line(s, (0, 0, 255), self.selected_line.p1, self.selected_line.p2, self.selected_line.width)
+            color = [abs(v - 155) for v in self.selected_line.color]
+            pygame.draw.line(s, color, self.selected_line.p1, self.selected_line.p2, self.selected_line.width)
+            self.draw_line_label(s, self.selected_line)
+
+        for line in self.line_preview:
+            pygame.draw.line(s, line.color, line.p1, line.p2, line.width)
+            self.draw_line_label(s, line)
+
+    def draw_line_label(self, s, line):
+        font = pygame.font.SysFont("consolas.ttf", 30)
+        p1 = self.translate_to_normal(line.p1)
+        p2 = self.translate_to_normal(line.p2)
+        pos = abs(round(p2[0] - p1[0])), abs(round(p2[1] - p1[1]))
+        text = f'{pos[0]}x{pos[1]}'
+        label = font.render(text, True, (255, 255, 255))
+        m_pos = pygame.mouse.get_pos()
+        t_pos = (
+            m_pos[0] + 10,
+            m_pos[1] + 10
+        )
+        s.blit(label, t_pos)
+
+    def update(self):
+        [line.set_p2(pygame.mouse.get_pos()) for line in self.line_preview]
+        self.check_line_selections(pygame.mouse.get_pos())
 
     def remove_selected_line(self):
         if self.selected_line:
@@ -131,8 +157,10 @@ class Map:
                         line = Line((self.selected_node.x, self.selected_node.y), (node.x, node.y), self.current_line_color)
                         self.lines.append(line)
                     self.selected_node = None
+                    self.line_preview.clear()
                 else:
                     self.selected_node = node
+                    self.line_preview.append(Line((node.x, node.y), pos, self.current_line_color))
 
     def check_line_selections(self, pos):
         self.selected_line = None
@@ -204,6 +232,9 @@ class Line:
 
     def set_color(self, color):
         self.color = color
+
+    def set_p2(self, p2):
+        self.p2 = p2
 
     def draw(self):
         s = pygame.display.get_surface()
@@ -344,9 +375,13 @@ class ToolPanel:
         for button in self.buttons:
             button.handle_click(pos)
 
-    def check_button_focusing(self, pos):
+    def check_button_focusing(self):
+        pos = pygame.mouse.get_pos()
         for button in self.buttons:
             button.check_focused(pos)
+
+    def update(self):
+        self.check_button_focusing()
 
 
 class Button:
