@@ -1,7 +1,6 @@
 import math
 
 
-# math.dist() is not in python 3.6
 def dist(p, q):
     return math.sqrt((q[0]-p[0])**2 + (q[1]-p[1])**2)
 
@@ -74,6 +73,13 @@ def circle_line_segment_intersection(circle_center, circle_radius, pt1, pt2, ful
 
 # Courtesy of https://stackoverflow.com/questions/3120357/get-closest-point-to-a-line
 def closest_point(a, b, p):
+    """
+    Finds the closest point on a line to another point
+    :param a: endpoint of the line
+    :param b: endpoint of the line
+    :param p: the point
+    :return: the closest point on the line
+    """
     a_to_p = (p[0] - a[0], p[1] - a[1])
     a_to_b = (b[0] - a[0], b[1] - a[1])
     atb2 = a_to_b[0]**2 + a_to_b[1]**2
@@ -84,6 +90,12 @@ def closest_point(a, b, p):
 
 # Courtesy of https://www.jeffreythompson.org/collision-detection/line-circle.php
 def line_point(l1, p):
+    """
+    Determines if a point is on a line within a certain clearance
+    :param l1: the line
+    :param p: the point
+    :return: true if intersecting
+    """
     p1 = l1.get_p1()
     p2 = l1.get_p2()
     x1 = p1[0]
@@ -132,8 +144,6 @@ class Circle:
         self.color = color
         self.width = 1
         self.selected = False
-        # Used in debug and in texture mapping
-        self.col_points = []
 
     def get_p1(self):
         return self.p1
@@ -169,15 +179,6 @@ class Circle:
     def get_selected(self):
         return self.selected
 
-    def clear_col_points(self):
-        self.col_points.clear()
-
-    def get_col_points(self):
-        return self.col_points
-
-    def add_col_point(self, point):
-        self.col_points.append(point)
-
 
 class Wall(Line):
     def __init__(self, p1, p2, color):
@@ -187,8 +188,6 @@ class Wall(Line):
         super().__init__(p1, p2)
 
     def get_color(self):
-        # if self.selected:
-        #     return (255, 0, 0)
         return self.color
 
     def set_color(self, color):

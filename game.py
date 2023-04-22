@@ -1,6 +1,4 @@
 import configparser
-import math
-
 import pygame
 
 import geometry
@@ -11,8 +9,8 @@ from instances import GameState
 # Clean up game.py. We could have all menus and an 'engine controller' inherit from a class that has a
 # process_inputs(), update(), and process_outputs() method. This way, we could set the state of the game,
 # and just call that state's three methods.
+# IDEA: You could use Mazetric from 376 to generate a maze
 
-# TODO: Use Mazetric to run through a maze
 # Collection of pre-defined colors
 colors = {
     "RED": (255, 0, 0),
@@ -28,6 +26,11 @@ colors = {
 
 
 def set_state(new_state):
+    """
+    Sets the current game state. Usually passed to menu interfaces
+    so they can swap the game state.
+    :param new_state: new game state
+    """
     global current_state
     current_state = new_state
     pygame.mouse.set_pos(width / 2, height / 2)
@@ -36,11 +39,21 @@ def set_state(new_state):
 
 
 def set_running(new_running):
+    """
+    Allows menu interfaces to end the game
+    :param new_running: new running state
+    :return:
+    """
     global running
     running = new_running
 
 
 def gen_walls():
+    """
+    Generates the walls list for the WorldState used in the pycaster.
+    Loads the walls from map.txt
+    :return:
+    """
     with open("map.txt", 'r') as file:
         walls = []
         for line in file:
@@ -51,24 +64,13 @@ def gen_walls():
         return walls
 
 
-def translate_map_coords(map):
-    coords = []
-    for y in range(len(map)):
-        for x in range(len(map[0])):
-            if map[y][x] == 0:
-                coords.append([(x*10, y*10), (x*10 + 10, y*10), (x*10 + 10, y*10 + 10), (x*10, y*10 + 10)])
-    walls = []
-    for rect in coords:
-        walls.append(geometry.Wall(rect[0], rect[1], (255, 255, 255)))
-        walls.append(geometry.Wall(rect[1], rect[2], (255, 255, 255)))
-        walls.append(geometry.Wall(rect[2], rect[3], (255, 255, 255)))
-        walls.append(geometry.Wall(rect[3], rect[0], (255, 255, 255)))
-    return walls
-
-
-# combines walls that can be made of a larger wall
 def consolidate_walls(key):
-    # Maximum distance for connected walls
+    """
+    Combines all walls that can be turned into a larger wall
+    Only works with walls in a grid. Also might not work...
+    :param key: The key of the walls dictionary in the pycaster's WorldState
+    :return:
+    """
     con_walls = []
     walls = engine.get_world_state().get_all_walls()[key]
     for i in range(len(walls)):
@@ -86,8 +88,13 @@ def consolidate_walls(key):
     engine.get_world_state().add_walls(key, walls)
 
 
-# I know this is horrible programming
 def cull_redundant_walls(key):
+    """
+    Removes walls that are on top of one another
+    :param key: The key of the walls dictionary in the pycaster's WorldState
+    :return:
+    """
+    # I know this is horrible programming
     walls = engine.get_world_state().get_all_walls()
     redundant_walls = []
     for i in range(len(walls[key])):
@@ -107,7 +114,13 @@ def gen_circles():
     return cl
 
 
+# TODO: We should really be doing this in WorldState
 def load_state(filename):
+    """
+    Loads and sets the pycaster's WorldState from a file
+    :param filename: file containing the WorldState
+    :return:
+    """
     with open(filename, 'r') as file:
         engine.get_world_state().remove_all_walls()
         engine.get_world_state().remove_all_circles()
@@ -130,6 +143,10 @@ def save_state(filename):
 
 
 def draw_frame():
+    """
+    Gets a frame from the pycaster and draws it
+    :return:
+    """
     screen = pygame.display.get_surface()
     frame = engine.process_outputs()
     screen.fill(colors["BLACK"])
@@ -141,7 +158,12 @@ def draw_frame():
         pygame.draw.line(screen, segment.get_color(), segment.get_p1(), segment.get_p2(), segment_width)
 
 
+# TODO: Need to move this to a new HUD interface
 def draw_debug():
+    """
+    Draws the debug overlay
+    :return:
+    """
     screen = pygame.display.get_surface()
     cur_pos = engine.get_cur_position()
     font_label = ['fps:{0}'.format(round(clock.get_fps(), 1)),
@@ -174,6 +196,10 @@ def draw_debug():
 
 
 def process_inputs():
+    """
+    Processes all inputs given the current game state
+    :return:
+    """
     global current_state
     global running
     events = pygame.event.get()
@@ -223,6 +249,11 @@ def process_inputs():
 
 
 def update(dt):
+    """
+    Calls appropriate update methods given the current game state
+    :param dt:
+    :return:
+    """
     if current_state is GameState.GAME:
         # Update Engine
         engine.update(dt)
@@ -237,6 +268,10 @@ def update(dt):
 
 
 def process_output():
+    """
+    Processes all outputs given the current game state
+    :return:
+    """
     if current_state is GameState.GAME:
         draw_frame()
         game_hud.process_outputs()
@@ -256,6 +291,10 @@ def process_output():
 
 
 def run():
+    """
+    Main game loop
+    :return:
+    """
     global running
     while running:
         # Tick the clock

@@ -1,11 +1,9 @@
 from random import randint
-import threading
-
 import configparser
 import math
+
 import pygame
 import support
-
 import geometry
 
 

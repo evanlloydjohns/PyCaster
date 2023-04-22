@@ -6,7 +6,7 @@ from instances import GameState
 class Interface:
     def __init__(self, width, height, set_state, set_running):
         """
-
+        Template for creating menus
         :param width: Width of the Menu
         :param height: Height of the Menu
         :param set_state: Method for switching to another state
@@ -28,6 +28,12 @@ class Interface:
 
 
 class GameHUDInterface(Interface):
+    """
+    This is used for the heads-up display. It currently doesn't support
+    the debug display, which is something that needs to be done in
+    the future.
+    """
+
     def __init__(self, width, height, set_state, set_running):
         super().__init__(width, height, set_state, set_running)
 
@@ -51,6 +57,10 @@ class GameHUDInterface(Interface):
 
 
 class StartMenuInterface(Interface):
+    """
+    The start menu that is displayed when the engine first starts
+    """
+
     def __init__(self, width, height, set_state, set_running):
         super().__init__(width, height, set_state, set_running)
 
@@ -106,6 +116,9 @@ class StartMenuInterface(Interface):
 
 
 class PauseMenuInterface(Interface):
+    """
+    The pause menu that is displayed whenever the user presses escape
+    """
     def __init__(self, width, height, set_state, set_running, reset_map):
         super().__init__(width, height, set_state, set_running)
 

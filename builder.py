@@ -11,6 +11,9 @@ MAP_COL_COUNT = 30 + 2
 
 
 class MapBuilder:
+    """
+    The map builder is a simple way to create WorldStates that are used by the pycaster
+    """
     def __init__(self):
         pygame.init()
         pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
@@ -207,6 +210,7 @@ class Map:
             file.write(data)
             file.close()
 
+    # TODO: Not currently scaling coordinates properly
     def load_state(self):
         filename = "map.txt"
         with open(filename, 'r') as file:
@@ -421,11 +425,7 @@ class Button:
             s.blit(overlay, self.rect)
 
     def handle_click(self, pos):
-        """
-        This is probably really bad to do...
-        :param pos:
-        :return:
-        """
+        # This is probably really bad to do...
         if self.rect.collidepoint(pos[0], pos[1]):
             if self.action:
                 if self.args:
