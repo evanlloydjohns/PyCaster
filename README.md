@@ -24,7 +24,7 @@ This project is currently in it's infant state, as I work out bugs and add more 
 ![](resources/demo_images/demo_01.png)
 ![](resources/demo_images/demo_04.png)
 
-You can view a demo video [here](https://google.com)
+You can view a demo video [here](https://youtu.be/N-VxHK4egNw)
 
 ## Installation
 
