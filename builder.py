@@ -99,11 +99,6 @@ class Map:
                 p = self.translate_to_map((i, j))
                 self.nodes.append(Node(p[0], p[1]))
 
-    def translate_to_map(self, pos):
-        x = (pos[0] * (self.map_rect.w / MAP_ROW_COUNT)) + self.map_rect_offset + self.rect.left
-        y = (pos[1] * (self.map_rect.h / MAP_COL_COUNT)) + self.map_rect_offset + self.rect.top
-        return x, y
-
     def draw(self):
         s = pygame.display.get_surface()
         pygame.draw.rect(s, self.background_color, self.rect)
@@ -190,6 +185,11 @@ class Map:
         y = round((pos[1] - self.map_rect_offset - self.rect.top) / (self.map_rect.h / MAP_COL_COUNT), 1)
         return x, y
 
+    def translate_to_map(self, pos):
+        x = (pos[0] * (self.map_rect.w / MAP_ROW_COUNT)) + self.map_rect_offset + self.rect.left
+        y = (pos[1] * (self.map_rect.h / MAP_COL_COUNT)) + self.map_rect_offset + self.rect.top
+        return x, y
+
     def save_state(self):
         filename = "map.txt"
         with open(filename, 'w') as file:
@@ -211,6 +211,7 @@ class Map:
         filename = "map.txt"
         with open(filename, 'r') as file:
             self.lines.clear()
+            pycaster_scale = 10
             for line in file:
                 line_split = line.split(':')
                 vals = line_split[1].split('; ')

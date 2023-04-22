@@ -218,7 +218,6 @@ class Ray(Line):
         self.color = color
         self.wall_height = 0
         self.collide = False
-        self.wall = None
         super().__init__(p1, p2)
 
     def get_rd(self):
@@ -232,9 +231,3 @@ class Ray(Line):
 
     def set_color(self, color):
         self.color = color
-
-    def get_wall(self):
-        return self.wall
-
-    def set_wall(self, wall):
-        self.wall = wall

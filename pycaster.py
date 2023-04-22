@@ -151,7 +151,6 @@ class Engine:
                     if p2 is not None:
                         ray.set_color(w.get_color())
                         ray.set_p2(p2)
-                        ray.set_wall(w)
             for k in circles:
                 for c in circles[k]:
                     p2 = geometry.circle_line_segment_intersection(c.get_p1(), c.get_r(), ray.get_p1(), ray.get_p2())

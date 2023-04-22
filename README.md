@@ -6,7 +6,7 @@ I've been interested in rendering engines and physics simulations for quite some
 
 I originally started this project in Java, but decided that It would be better to prototype the idea in python with pygame, and then move to Java (or hopefully C some day) once the general concepts and overall structure is down. 
 
-## A Ray Caster?!...
+### A Ray Caster?!...
 
 Most ray casters you'll find online use a grid based system, where the world is separated into cells which can be occupied by different states (a wall with a brick texture, a wall with a metal textue, a door, etc.). This is a really effective and efficient approach, but it does limit flexability in world geometry. 
 
@@ -17,18 +17,48 @@ That is not to say that this has never been done before (as it has, many times).
 This project is currently in it's infant state, as I work out bugs and add more features. My goal is to have two executables, a world editor, and a ray caster. The world editor will have tools that allow you to create levels, and the ray caster will be the engine that can render those levels. Once the ray caster gets to a good state, I'll start work on the world editor.
 
 
-## Screenshots
+## Examples
 
-![](resources/demo_images/pycaster_demo_startmenu.png)
-![](resources/demo_images/pycaster_demo_01.png)
-![](resources/demo_images/pycaster_demo_02.png)
+![](resources/demo_images/demo_03.png)
+![](resources/demo_images/demo_02.png)
+![](resources/demo_images/demo_01.png)
+![](resources/demo_images/demo_04.png)
 
-TODOs:
+## Installation
+
+Clone this repo to a folder
+
+```commandline
+git clone https://github.com/CutlassS1968/PyCaster.git
+```
+
+Install pygame
+```commandline
+pip install pygame
+```
+
+run the ray caster
+```commandline
+python ./game.py
+```
+
+If you want to change the map, you can create and save a new map using the Map Builder
+```commandline
+python ./builder.py
+```
+
+If you need to change any settings, they are located in the settings.ini file
+
+## Future tasks
+
+This is just a collection of various notes I've written while working on the project. Some of these are outdated and are no longer relevant to the project.
+
+To-do's:
 - [x] Add another world object type
 - [x] Lay groundwork for texture mapping
 - [x] Add rudimentary player collision for world objects
 - [x] De-link world coordinate system from window dimensions
-- [x] Formalize a wolrd objects data structure for future additions
+- [x] Formalize a world objects data structure for future additions
 - [x] Reformat engine and game initialization to better support OOP principles
 - [x] Add broad-phase collision selection for walls
 - [x] Add a GUI module for implementation of a start menu and pause menu
@@ -37,6 +67,7 @@ TODOs:
 - [ ] Investigate the use of a decorator for the player collision check
 - [ ] Need to make mouse movement smooth
 - [x] Allow player to slide along wall (do some trig stuff I guess)
+- [ ] There's a pretty big issue right with what seems like a memory leak of some kind.
 
 
 Large Goals:
