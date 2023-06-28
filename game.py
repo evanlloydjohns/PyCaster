@@ -158,41 +158,15 @@ def draw_frame():
         pygame.draw.line(screen, segment.get_color(), segment.get_p1(), segment.get_p2(), segment_width)
 
 
-# TODO: Need to move this to a new HUD interface
-def draw_debug():
-    """
-    Draws the debug overlay
-    :return:
-    """
-    screen = pygame.display.get_surface()
-    cur_pos = engine.get_cur_position()
-    font_label = ['fps:{0}'.format(round(clock.get_fps(), 1)),
-                  'x:{0} y:{1}'.format(round(cur_pos[0], 1), round(cur_pos[1], 1))]
-    if is_detailed_debug:
-        debug_rays = engine.debug()
-        for ray in debug_rays:
-            p1 = ray.get_p1()[0] + (width / 2), ray.get_p1()[1] + (height / 2)
-            p2 = ray.get_p2()[0] + (width / 2), ray.get_p2()[1] + (height / 2)
-            pygame.draw.line(screen, ray.get_color(), p1, p2)
-            pygame.draw.circle(screen, (0, 0, 255), p2, 5, 0)
-        walls = engine.get_world_state().get_all_walls()
-        for k in walls:
-            for wall in walls[k]:
-                p1 = wall.get_p1()[0] + (width / 2), wall.get_p1()[1] + (height / 2)
-                p2 = wall.get_p2()[0] + (width / 2), wall.get_p2()[1] + (height / 2)
-                pygame.draw.line(screen, wall.get_color(), p1, p2)
-        # Display debug stats
-        engine_debug = engine.get_debug_stats()
-        for k in engine_debug:
-            font_label.append('')
-            font_label.append(f'[{k}]')
-            for i in engine_debug[k]:
-                font_label.append(f'{i}: {engine_debug[k][i]}')
-
-    font = pygame.font.SysFont('consolas.ttf', 24)
-    for i in range(len(font_label)):
-        text = font.render(font_label[i], True, (0, 255, 0))
-        screen.blit(text, (5, i * 20 + 5))
+def get_debug_dict():
+    return {
+        'fps': clock.get_fps(),
+        'cur_pos': engine.get_cur_position(),
+        'is_detailed_debug': is_detailed_debug,
+        'debug_rays': engine.debug(),
+        'debug_walls': engine.get_world_state().get_all_walls(),
+        'engine_debug': engine.get_debug_stats()
+    }
 
 
 def process_inputs():
@@ -275,8 +249,8 @@ def process_output():
     if current_state is GameState.GAME:
         draw_frame()
         game_hud.process_outputs()
-        if is_debug:
-            draw_debug()
+        # if is_debug:
+        #     draw_debug()
 
     if current_state is GameState.PAUSE_MENU:
         draw_frame()
@@ -350,7 +324,7 @@ pygame.mouse.set_pos(width / 2, height / 2)
 # Initialize menus
 pause_menu = menus.PauseMenuInterface(width, height, set_state, set_running, load_state)
 start_menu = menus.StartMenuInterface(width, height, set_state, set_running)
-game_hud = menus.GameHUDInterface(width, height, set_state, set_running)
+game_hud = menus.GameHUDInterface(width, height, set_state, set_running, get_debug_dict)
 
 current_state = GameState.START_MENU
 

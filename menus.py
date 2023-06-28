@@ -34,7 +34,8 @@ class GameHUDInterface(Interface):
     the future.
     """
 
-    def __init__(self, width, height, set_state, set_running):
+    def __init__(self, width, height, set_state, set_running, get_debug_stats):
+        self.get_debug_stats = get_debug_stats
         super().__init__(width, height, set_state, set_running)
 
     def process_inputs(self, events):
@@ -53,7 +54,46 @@ class GameHUDInterface(Interface):
         pygame.draw.line(s, (255, 255, 255), (self.width / 2, self.height / 2 + 10), (self.width / 2, self.height / 2 - 10), 1)
         pygame.draw.line(s, (255, 255, 255), (self.width / 2 + 10, self.height / 2), (self.width / 2 - 10, self.height / 2), 1)
 
+        # Draw Debug
+        self.draw_debug(s)
+
         pygame.display.get_surface().blit(s, (0, 0))
+
+    def draw_debug(self, s):
+        """
+        Draws the debug overlay
+        :return:
+        """
+        debug_stats = self.get_debug_stats()
+        cur_pos = debug_stats["cur_pos"]
+        font_label = ['fps:{0}'.format(round(debug_stats["fps"], 1)),
+                      'x:{0} y:{1}'.format(round(cur_pos[0], 1), round(cur_pos[1], 1))]
+        if debug_stats["is_detailed_debug"]:
+            debug_rays = debug_stats["debug_rays"]
+            for ray in debug_rays:
+                p1 = ray.get_p1()[0] + (self.width / 2), ray.get_p1()[1] + (self.height / 2)
+                p2 = ray.get_p2()[0] + (self.width / 2), ray.get_p2()[1] + (self.height / 2)
+                pygame.draw.line(s, ray.get_color(), p1, p2)
+                pygame.draw.circle(s, (0, 0, 255), p2, 5, 0)
+            walls = debug_stats["debug_walls"]
+            for k in walls:
+                for wall in walls[k]:
+                    p1 = wall.get_p1()[0] + (self.width / 2), wall.get_p1()[1] + (self.height / 2)
+                    p2 = wall.get_p2()[0] + (self.width / 2), wall.get_p2()[1] + (self.height / 2)
+                    pygame.draw.line(s, wall.get_color(), p1, p2)
+
+            # Display debug stats
+            engine_debug = debug_stats["engine_debug"]
+            for k in engine_debug:
+                font_label.append('')
+                font_label.append(f'[{k}]')
+                for i in engine_debug[k]:
+                    font_label.append(f'{i}: {engine_debug[k][i]}')
+
+        font = pygame.font.SysFont('consolas.ttf', 24)
+        for i in range(len(font_label)):
+            text = font.render(font_label[i], True, (0, 255, 0))
+            s.blit(text, (5, i * 20 + 5))
 
 
 class StartMenuInterface(Interface):

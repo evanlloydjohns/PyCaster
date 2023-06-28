@@ -15,12 +15,6 @@ def rand_color():
 
 class Engine:
     def __init__(self, width, height, wall_height, current_position):
-        # initialize the config parsers
-        config = configparser.ConfigParser()
-        config.read('settings.ini')
-        en_config = config['ENGINE']
-        mo_config = config['MOVEMENT']
-
         # Get engine settings from settings.ini
         self.width = width
         self.height = height
