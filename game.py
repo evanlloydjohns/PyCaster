@@ -114,29 +114,6 @@ def gen_circles():
     return cl
 
 
-# TODO: We should really be doing this in WorldState
-def load_state(filename):
-    """
-    Loads and sets the pycaster's WorldState from a file
-    :param filename: file containing the WorldState
-    :return:
-    """
-    with open(filename, 'r') as file:
-        engine.get_world_state().remove_all_walls()
-        engine.get_world_state().remove_all_circles()
-        walls = {}
-        circles = {}
-        for line in file:
-            line_split = line.split(':')
-            key = line_split[0]
-            vals = line_split[1].split('; ')
-            if key in walls:
-                walls[key].append(geometry.Wall(eval(vals[0]), eval(vals[1]), eval(vals[2])))
-            else:
-                walls[key] = [geometry.Wall(eval(vals[0]), eval(vals[1]), eval(vals[2]))]
-        engine.get_world_state().set_walls(walls)
-
-
 def save_state(filename):
     print("saving!")
     engine.get_world_state().save_state(filename)
@@ -192,7 +169,7 @@ def process_inputs():
                 if event.key == pygame.K_o:
                     save_state("map.txt")
                 if event.key == pygame.K_p:
-                    load_state("map.txt")
+                    engine.get_world_state().load_state("map.txt")
             # Check for exit condition
             if event.type == pygame.QUIT:
                 running = False
@@ -322,7 +299,7 @@ clock = pygame.time.Clock()
 pygame.mouse.set_pos(width / 2, height / 2)
 
 # Initialize menus
-pause_menu = menus.PauseMenuInterface(width, height, set_state, set_running, load_state)
+pause_menu = menus.PauseMenuInterface(width, height, set_state, set_running, engine.get_world_state().load_state)
 start_menu = menus.StartMenuInterface(width, height, set_state, set_running)
 game_hud = menus.GameHUDInterface(width, height, set_state, set_running, get_debug_dict)
 
